@@ -17,6 +17,12 @@ on:
     - reopened
     - synchronize
   merge_group:
+  workflow_dispatch:
+   inputs:
+    branch:
+       description: 'Branch to trigger manually'
+       required: true
+       default: 'dependabotchanges'
 
 jobs:
   docker-build:
@@ -31,8 +37,8 @@ jobs:
             dockerfile: docker/Frontend.Dockerfile
     uses: ./.github/workflows/build-docker.yml
     with:
-      registry: ${{ github.ref_name == 'main' && 'fruoccopublic.azurecr.io' || 'cwydcontainerreg.azurecr.io'}}
-      username: ${{ github.ref_name == 'main' && 'fruoccopublic' || 'cwydcontainerreg'}}
+      registry: 'cwydtrial.azurecr.io'
+      username: 'cwydtrial'
       app_name: ${{ matrix.app_name }}
       dockerfile: ${{ matrix.dockerfile }}
       push: ${{ github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo' }}
