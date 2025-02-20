@@ -18,8 +18,8 @@ on:
     - synchronize
   merge_group:
   workflow_dispatch:
-   inputs:
-    branch:
+   
+    
  
 
 jobs:
