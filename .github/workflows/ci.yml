@@ -8,6 +8,7 @@ on:
       - demo
   schedule:
     - cron: '0 8,20 * * *'  # Runs at 8:00 AM and 8:00 PM GMT
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -17,7 +18,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
-  ci:
+  deploy:
     runs-on: ubuntu-latest
     env:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -25,11 +26,13 @@ jobs:
       AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
+    outputs:
+      imageTag: ${{ steps.set-image-tag.outputs.imageTag }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Run Quota Check Script
       - name: Run Quota Check
         id: quota-check
         run: |
@@ -43,11 +46,10 @@ jobs:
 
           chmod +x scripts/checkquota.sh
           if ! scripts/checkquota.sh; then
-            # If quota check fails due to insufficient quota, set the flag
             if grep -q "No region with sufficient quota found" scripts/checkquota.sh; then
               echo "QUOTA_FAILED=true" >> $GITHUB_ENV
             fi
-            exit 1  # Fail the pipeline if any other failure occurs
+            exit 1
           fi
 
       - name: Send Notification on Quota Failure
@@ -69,8 +71,6 @@ jobs:
         if: env.QUOTA_FAILED == 'true'
         run: exit 1
 
-        # The pipeline stops here if quota check fails!
-
       - name: Set Deployment Region
         run: |
           echo "Selected Region: $VALID_REGION"
@@ -88,13 +88,16 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
             echo "imageTag=latest" >> $GITHUB_ENV
+            echo "::set-output name=imageTag::latest"
           elif [[ "${{ github.ref_name }}" == "main" ]]; then
             echo "imageTag=latest" >> $GITHUB_ENV
+            echo "::set-output name=imageTag::latest"
           else
             echo "imageTag=${{ github.ref_name }}" >> $GITHUB_ENV
+            echo "::set-output name=imageTag::${{ github.ref_name }}"
           fi
 
-      - name: Pre-build image and run make in dev container
+      - name: Pre-build image and deploy
         uses: devcontainers/ci@v0.3
         env:
           AZURE_ENV_NAME: ${{ github.run_id }}
@@ -112,12 +115,26 @@ jobs:
             AZURE_SUBSCRIPTION_ID
             AZURE_ENV_NAME
             AZURE_LOCATION
-      - name: Tidy up
+
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_ENV_NAME: ${{ github.run_id }}
+      AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+      imageTag: ${{ needs.deploy.outputs.imageTag }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Destroy resources
         uses: devcontainers/ci@v0.3
-        if: always()
-        env:
-          AZURE_ENV_NAME: ${{ github.run_id }}
-          AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
         with:
           push: never
           imageName: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
@@ -130,20 +147,29 @@ jobs:
             AZURE_SUBSCRIPTION_ID
             AZURE_ENV_NAME
             AZURE_LOCATION
+      - name: Extract Web URLs from .env
+        run: |
+          echo "Extracting frontend/admin URLs from .env"
+          if [ -f .env ]; then
+            source .env
+            echo "FRONTEND_WEBSITE_URL=$FRONTEND_WEBSITE_URL" >> $GITHUB_ENV
+            echo "ADMIN_WEBSITE_URL=$ADMIN_WEBSITE_URL" >> $GITHUB_ENV
+          else
+            echo ".env file not found"
+            exit 1
+          fi
 
       - name: Send Notification on Failure
         if: failure()
         run: |
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          # Construct the email body
           EMAIL_BODY=$(cat <<EOF
           {
-            "body": "<p>Dear Team,</p><p>We would like to inform you that the CWYD Automation process has encountered an issue and has failed to complete successfully.</p><p><strong>Build URL:</strong> ${RUN_URL}<br> ${OUTPUT}</p><p>Please investigate the matter at your earliest convenience.</p><p>Best regards,<br>Your Automation Team</p>"
+            "body": "<p>Dear Team,</p><p>The CWYD Automation process has encountered an issue and has failed to complete successfully.</p><p><strong>Build URL:</strong> ${RUN_URL}</p><p>Please investigate.</p><p>Best regards,<br>Your Automation Team</p>"
           }
           EOF
           )
 
-          # Send the notification
           curl -X POST "${{ secrets.LOGIC_APP_URL }}" \
             -H "Content-Type: application/json" \
             -d "$EMAIL_BODY" || echo "Failed to send notification"
