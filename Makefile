@@ -65,6 +65,8 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@azd deploy web --no-prompt
 	@azd deploy function --no-prompt
 	@azd deploy adminweb --no-prompt
+	@azd env set ENFORCE_AUTH false
+
 	@azd env get-values > .env
 
 destroy: azd-login ## 🧨 Destroy everything in Azure
