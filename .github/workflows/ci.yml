@@ -107,11 +107,7 @@ jobs:
           cacheFrom: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
           imageTag: ${{ env.imageTag }}
           runCmd: |
-              export AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}
-              export AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}
-              export AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}
-              export AZURE_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}
-              export AZURE_LOCATION=${{ env.AZURE_LOCATION }}
+
 
               export optional_args="./code/tests"
               make ci && make deploy
@@ -127,15 +123,15 @@ jobs:
                 exit 1
               fi
 
-          # refFilterForPush: refs/heads/${{ github.event_name == 'schedule' && 'main' || github.ref_name }}
-          # env: |
-          #   AZURE_CLIENT_ID
-          #   AZURE_CLIENT_SECRET
-          #   AZURE_TENANT_ID
-          #   AZURE_SUBSCRIPTION_ID
-          #   AZURE_ENV_NAME
-          #   AZURE_LOCATION
-          #   ENFORCE_AUTH=false
+          refFilterForPush: refs/heads/${{ github.event_name == 'schedule' && 'main' || github.ref_name }}
+          env: |
+            AZURE_CLIENT_ID
+            AZURE_CLIENT_SECRET
+            AZURE_TENANT_ID
+            AZURE_SUBSCRIPTION_ID
+            AZURE_ENV_NAME
+            AZURE_LOCATION
+            ENFORCE_AUTH=false
       - name: Display frontend and admin URLs
         run: |
           echo "FRONTEND_WEBSITE_URL: $FRONTEND_WEBSITE_URL"
