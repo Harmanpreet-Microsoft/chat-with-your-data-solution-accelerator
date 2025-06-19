@@ -121,15 +121,19 @@ jobs:
               exit 1
             fi
 
-          refFilterForPush: refs/heads/${{ github.event_name == 'schedule' && 'main' || github.ref_name }}
-          env: |
-            AZURE_CLIENT_ID
-            AZURE_CLIENT_SECRET
-            AZURE_TENANT_ID
-            AZURE_SUBSCRIPTION_ID
-            AZURE_ENV_NAME
-            AZURE_LOCATION
-            ENFORCE_AUTH=false
+          # refFilterForPush: refs/heads/${{ github.event_name == 'schedule' && 'main' || github.ref_name }}
+          # env: |
+          #   AZURE_CLIENT_ID
+          #   AZURE_CLIENT_SECRET
+          #   AZURE_TENANT_ID
+          #   AZURE_SUBSCRIPTION_ID
+          #   AZURE_ENV_NAME
+          #   AZURE_LOCATION
+          #   ENFORCE_AUTH=false
+      - name: Display frontend and admin URLs
+        run: |
+          echo "FRONTEND_WEBSITE_URL: $FRONTEND_WEBSITE_URL"
+          echo "ADMIN_WEBSITE_URL: $ADMIN_WEBSITE_URL"
 
 
   cleanup:
