@@ -112,16 +112,6 @@ jobs:
               export optional_args="./code/tests"
               make ci && make deploy
 
-              # Export the .env variables to GitHub Actions environment
-              if [ -f .env ]; then
-                source .env
-                echo "FRONTEND_WEBSITE_URL=$FRONTEND_WEBSITE_URL" >> $GITHUB_ENV
-                echo "ADMIN_WEBSITE_URL=$ADMIN_WEBSITE_URL" >> $GITHUB_ENV
-                echo "ENFORCE_AUTH=$ENFORCE_AUTH" >> $GITHUB_ENV
-              else
-                echo ".env file not found" >&2
-                exit 1
-              fi
 
           # refFilterForPush: refs/heads/${{ github.event_name == 'schedule' && 'main' || github.ref_name }}
           env: |
@@ -132,6 +122,20 @@ jobs:
             AZURE_ENV_NAME
             AZURE_LOCATION
             ENFORCE_AUTH=false
+      - name: Extract .env values from file
+        if: success()
+        run: |
+          echo "Reading .env file"
+          if [ -f .env ]; then
+            source .env
+            echo "FRONTEND_WEBSITE_URL=$FRONTEND_WEBSITE_URL" >> $GITHUB_ENV
+            echo "ADMIN_WEBSITE_URL=$ADMIN_WEBSITE_URL" >> $GITHUB_ENV
+            echo "ENFORCE_AUTH=$ENFORCE_AUTH" >> $GITHUB_ENV
+          else
+            echo ".env file not found" >&2
+            exit 1
+          fi
+
       - name: Display frontend and admin URLs
         run: |
           echo "FRONTEND_WEBSITE_URL: $FRONTEND_WEBSITE_URL"
