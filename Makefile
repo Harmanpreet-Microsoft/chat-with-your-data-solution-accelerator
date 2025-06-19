@@ -75,7 +75,7 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 		echo "❌ Failed to generate .env file from azd."; \
 		exit 1; \
 	fi
-	@echo "🔍 Loading AZURE_ENV_FILE from: $(AZURE_ENV_FILE)"
+
 
 destroy: azd-login ## 🧨 Destroy everything in Azure
 	@echo -e "\e[34m$@\e[0m" || true
