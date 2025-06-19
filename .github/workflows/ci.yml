@@ -107,19 +107,25 @@ jobs:
           cacheFrom: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
           imageTag: ${{ env.imageTag }}
           runCmd: |
-            export optional_args="./code/tests"
-            make ci && make deploy
+              export AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}
+              export AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}
+              export AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}
+              export AZURE_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}
+              export AZURE_LOCATION=${{ env.AZURE_LOCATION }}
 
-            # Export the .env variables to GitHub Actions environment
-            if [ -f .env ]; then
-              source .env
-              echo "FRONTEND_WEBSITE_URL=$FRONTEND_WEBSITE_URL" >> $GITHUB_ENV
-              echo "ADMIN_WEBSITE_URL=$ADMIN_WEBSITE_URL" >> $GITHUB_ENV
-              echo "ENFORCE_AUTH=$ENFORCE_AUTH" >> $GITHUB_ENV
-            else
-              echo ".env file not found" >&2
-              exit 1
-            fi
+              export optional_args="./code/tests"
+              make ci && make deploy
+
+              # Export the .env variables to GitHub Actions environment
+              if [ -f .env ]; then
+                source .env
+                echo "FRONTEND_WEBSITE_URL=$FRONTEND_WEBSITE_URL" >> $GITHUB_ENV
+                echo "ADMIN_WEBSITE_URL=$ADMIN_WEBSITE_URL" >> $GITHUB_ENV
+                echo "ENFORCE_AUTH=$ENFORCE_AUTH" >> $GITHUB_ENV
+              else
+                echo ".env file not found" >&2
+                exit 1
+              fi
 
           # refFilterForPush: refs/heads/${{ github.event_name == 'schedule' && 'main' || github.ref_name }}
           # env: |

@@ -4,6 +4,8 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 AZURE_ENV_FILE := $(shell azd env list --output json | jq -r '.[] | select(.IsDefault == true) | .DotEnvPath')
+@echo "🔍 Loading AZURE_ENV_FILE from: $(AZURE_ENV_FILE)"
+
 
 ENV_FILE := .env
 ifeq ($(filter $(MAKECMDGOALS),config clean),)
@@ -67,7 +69,12 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@azd deploy adminweb --no-prompt
 	@azd env set AUTH_ENABLED false
 
-	@azd env get-values > .env
+	@if azd env get-values > .env; then \
+		echo ".env file created successfully."; \
+	else \
+		echo "❌ Failed to generate .env file from azd."; \
+		exit 1; \
+	fi
 
 destroy: azd-login ## 🧨 Destroy everything in Azure
 	@echo -e "\e[34m$@\e[0m" || true
