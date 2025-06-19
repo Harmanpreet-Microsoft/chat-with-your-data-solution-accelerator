@@ -70,9 +70,6 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@azd env set AUTH_ENABLED false
 	@azd env get-values > .env
 
-
-
-
 destroy: azd-login ## 🧨 Destroy everything in Azure
 	@echo -e "\e[34m$@\e[0m" || true
 	@azd down --force --purge --no-prompt
