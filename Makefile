@@ -68,13 +68,9 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@azd deploy function --no-prompt
 	@azd deploy adminweb --no-prompt
 	@azd env set AUTH_ENABLED false
+	@azd env get-values > .env
 
-	@if azd env get-values > .env; then \
-		echo ".env file created successfully."; \
-	else \
-		echo "❌ Failed to generate .env file from azd."; \
-		exit 1; \
-	fi
+
 
 
 destroy: azd-login ## 🧨 Destroy everything in Azure
