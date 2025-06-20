@@ -96,7 +96,6 @@ jobs:
             echo "imageTag=${{ github.ref_name }}" >> $GITHUB_ENV
             echo "::set-output name=imageTag::${{ github.ref_name }}"
           fi
-
       - name: Pre-build image and deploy
         uses: devcontainers/ci@v0.3
         env:
@@ -107,26 +106,9 @@ jobs:
           cacheFrom: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
           imageTag: ${{ env.imageTag }}
           runCmd: |
+            export optional_args="./code/tests"
+            make ci && make deploy
 
-
-              # Build and deploy
-              export optional_args="./code/tests"
-              make ci && make deploy
-
-              # Dump env values from azd
-              azd env get-values > azd.env
-
-              # Extract specific keys and write them to a temp file for exporting to GitHub env
-              FRONTEND_WEBSITE_URL=$(grep -oP '^FRONTEND_WEBSITE_URL=\K.*' azd.env)
-              ADMIN_WEBSITE_URL=$(grep -oP '^ADMIN_WEBSITE_URL=\K.*' azd.env)
-
-              # Save to shared volume file for use in next GitHub step
-              echo "FRONTEND_WEBSITE_URL=$FRONTEND_WEBSITE_URL" > /workspaces/env-export.txt
-              echo "ADMIN_WEBSITE_URL=$ADMIN_WEBSITE_URL" >> /workspaces/env-export.txt
-
-
-
-          # refFilterForPush: refs/heads/${{ github.event_name == 'schedule' && 'main' || github.ref_name }}
           env: |
             AZURE_CLIENT_ID
             AZURE_CLIENT_SECRET
@@ -136,14 +118,14 @@ jobs:
             AZURE_LOCATION
             AUTH_ENABLED=false
 
-      - name: Export .env values to GitHub Actions
+
+      - name: Export URLs to GitHub Actions env
         run: |
-          cat env-export.txt
-          source env-export.txt
-          echo "FRONTEND_WEBSITE_URL=$FRONTEND_WEBSITE_URL" >> $GITHUB_ENV
-          echo "ADMIN_WEBSITE_URL=$ADMIN_WEBSITE_URL" >> $GITHUB_ENV
+          FRONTEND=$(cat /tmp/frontend_url.txt 2>/dev/null || echo "")
+          ADMIN=$(cat /tmp/admin_url.txt 2>/dev/null || echo "")
 
-
+          echo "FRONTEND_WEBSITE_URL=$FRONTEND" >> $GITHUB_ENV
+          echo "ADMIN_WEBSITE_URL=$ADMIN" >> $GITHUB_ENV
 
       - name: Display frontend and admin URLs
         run: |

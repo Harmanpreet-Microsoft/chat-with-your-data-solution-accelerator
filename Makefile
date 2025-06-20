@@ -68,7 +68,11 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@azd deploy function --no-prompt
 	@azd deploy adminweb --no-prompt
 	@azd env set AUTH_ENABLED false
-	@azd env get-values > .env
+
+	# Write the values to a file GitHub Actions can read
+	@azd env get-values > /tmp/azd.env
+	@grep -oP '^FRONTEND_WEBSITE_URL=\K.*' /tmp/azd.env > /tmp/frontend_url.txt || echo "" > /tmp/frontend_url.txt
+	@grep -oP '^ADMIN_WEBSITE_URL=\K.*' /tmp/azd.env > /tmp/admin_url.txt || echo "" > /tmp/admin_url.txt
 
 destroy: azd-login ## 🧨 Destroy everything in Azure
 	@echo -e "\e[34m$@\e[0m" || true
