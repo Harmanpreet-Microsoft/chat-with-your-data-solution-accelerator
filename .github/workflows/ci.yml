@@ -109,18 +109,20 @@ jobs:
           runCmd: |
 
 
+              # Build and deploy
               export optional_args="./code/tests"
               make ci && make deploy
 
-              # ✅ Get .env values into a file
+              # Dump env values from azd
               azd env get-values > azd.env
 
-              # ✅ Extract and write to temp file for export
+              # Extract specific keys and write them to a temp file for exporting to GitHub env
               FRONTEND_WEBSITE_URL=$(grep -oP '^FRONTEND_WEBSITE_URL=\K.*' azd.env)
               ADMIN_WEBSITE_URL=$(grep -oP '^ADMIN_WEBSITE_URL=\K.*' azd.env)
 
-              echo "FRONTEND_WEBSITE_URL=$FRONTEND_WEBSITE_URL" >> env-export.txt
-              echo "ADMIN_WEBSITE_URL=$ADMIN_WEBSITE_URL" >> env-export.txt
+              # Save to shared volume file for use in next GitHub step
+              echo "FRONTEND_WEBSITE_URL=$FRONTEND_WEBSITE_URL" > /workspaces/env-export.txt
+              echo "ADMIN_WEBSITE_URL=$ADMIN_WEBSITE_URL" >> /workspaces/env-export.txt
 
 
 
