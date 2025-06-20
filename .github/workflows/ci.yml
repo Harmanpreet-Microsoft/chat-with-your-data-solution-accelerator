@@ -111,17 +111,17 @@ jobs:
 
               export optional_args="./code/tests"
               make ci && make deploy
-                # Export the .env variables to GitHub Actions environment
-              if azd env get-values > /workspaces/azd.env; then
-                FRONTEND_WEBSITE_URL=$(grep -oP '^FRONTEND_WEBSITE_URL=\K.*' /workspaces/azd.env)
-                ADMIN_WEBSITE_URL=$(grep -oP '^ADMIN_WEBSITE_URL=\K.*' /workspaces/azd.env)
 
-                echo "FRONTEND_WEBSITE_URL=$FRONTEND_WEBSITE_URL" >> /workspaces/env-export.txt
-                echo "ADMIN_WEBSITE_URL=$ADMIN_WEBSITE_URL" >> /workspaces/env-export.txt
-              else
-                echo "❌ Failed to fetch azd env values"
-                exit 1
-              fi
+              # ✅ Get .env values into a file
+              azd env get-values > azd.env
+
+              # ✅ Extract and write to temp file for export
+              FRONTEND_WEBSITE_URL=$(grep -oP '^FRONTEND_WEBSITE_URL=\K.*' azd.env)
+              ADMIN_WEBSITE_URL=$(grep -oP '^ADMIN_WEBSITE_URL=\K.*' azd.env)
+
+              echo "FRONTEND_WEBSITE_URL=$FRONTEND_WEBSITE_URL" >> env-export.txt
+              echo "ADMIN_WEBSITE_URL=$ADMIN_WEBSITE_URL" >> env-export.txt
+
 
 
           # refFilterForPush: refs/heads/${{ github.event_name == 'schedule' && 'main' || github.ref_name }}
@@ -133,12 +133,14 @@ jobs:
             AZURE_ENV_NAME
             AZURE_LOCATION
             AUTH_ENABLED=false
-      - name: Load exported environment values
+
+      - name: Export .env values to GitHub Actions
         run: |
           cat env-export.txt
           source env-export.txt
           echo "FRONTEND_WEBSITE_URL=$FRONTEND_WEBSITE_URL" >> $GITHUB_ENV
           echo "ADMIN_WEBSITE_URL=$ADMIN_WEBSITE_URL" >> $GITHUB_ENV
+
 
 
       - name: Display frontend and admin URLs
