@@ -106,19 +106,20 @@ jobs:
           cacheFrom: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
           imageTag: ${{ env.imageTag }}
           runCmd: |
-                # Run CI and deploy
-                export optional_args="./code/tests"
-                make ci && make deploy
+              export optional_args="./code/tests"
+              make ci && make deploy
 
-                # Safely extract and store outputs
-                azd env get-values > /tmp/azd.env
+              # Extract and write URLs from .env
+              if azd env get-values > azd.env; then
+                FRONTEND=$(grep -oP '^FRONTEND_WEBSITE_URL=\K.*' azd.env)
+                ADMIN=$(grep -oP '^ADMIN_WEBSITE_URL=\K.*' azd.env)
 
-                FRONTEND_WEBSITE_URL=$(grep -oP '^FRONTEND_WEBSITE_URL=\K.*' /tmp/azd.env)
-                ADMIN_WEBSITE_URL=$(grep -oP '^ADMIN_WEBSITE_URL=\K.*' /tmp/azd.env)
-
-                # Export to GitHub Actions readable file
-                echo "FRONTEND_WEBSITE_URL=$FRONTEND_WEBSITE_URL" > /tmp/env-export.txt
-                echo "ADMIN_WEBSITE_URL=$ADMIN_WEBSITE_URL" >> /tmp/env-export.txt
+                echo "$FRONTEND" > /tmp/frontend_url.txt
+                echo "$ADMIN" > /tmp/admin_url.txt
+              else
+                echo "❌ Failed to get azd env values"
+                exit 1
+              fi
 
 
           env: |
