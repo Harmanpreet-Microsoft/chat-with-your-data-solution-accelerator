@@ -106,8 +106,20 @@ jobs:
           cacheFrom: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
           imageTag: ${{ env.imageTag }}
           runCmd: |
-            export optional_args="./code/tests"
-            make ci && make deploy
+                # Run CI and deploy
+                export optional_args="./code/tests"
+                make ci && make deploy
+
+                # Safely extract and store outputs
+                azd env get-values > /tmp/azd.env
+
+                FRONTEND_WEBSITE_URL=$(grep -oP '^FRONTEND_WEBSITE_URL=\K.*' /tmp/azd.env)
+                ADMIN_WEBSITE_URL=$(grep -oP '^ADMIN_WEBSITE_URL=\K.*' /tmp/azd.env)
+
+                # Export to GitHub Actions readable file
+                echo "FRONTEND_WEBSITE_URL=$FRONTEND_WEBSITE_URL" > /tmp/env-export.txt
+                echo "ADMIN_WEBSITE_URL=$ADMIN_WEBSITE_URL" >> /tmp/env-export.txt
+
 
           env: |
             AZURE_CLIENT_ID
@@ -119,13 +131,14 @@ jobs:
             AUTH_ENABLED=false
 
 
-      - name: Export URLs to GitHub Actions env
+      - name: Export .env values to GitHub Actions
         run: |
-          FRONTEND=$(cat /tmp/frontend_url.txt 2>/dev/null || echo "")
-          ADMIN=$(cat /tmp/admin_url.txt 2>/dev/null || echo "")
+          cat /tmp/env-export.txt
+          FRONTEND_WEBSITE_URL=$(grep -oP '^FRONTEND_WEBSITE_URL=\K.*' /tmp/env-export.txt)
+          ADMIN_WEBSITE_URL=$(grep -oP '^ADMIN_WEBSITE_URL=\K.*' /tmp/env-export.txt)
+          echo "FRONTEND_WEBSITE_URL=$FRONTEND_WEBSITE_URL" >> $GITHUB_ENV
+          echo "ADMIN_WEBSITE_URL=$ADMIN_WEBSITE_URL" >> $GITHUB_ENV
 
-          echo "FRONTEND_WEBSITE_URL=$FRONTEND" >> $GITHUB_ENV
-          echo "ADMIN_WEBSITE_URL=$ADMIN" >> $GITHUB_ENV
 
       - name: Display frontend and admin URLs
         run: |
