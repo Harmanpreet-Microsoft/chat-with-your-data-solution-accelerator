@@ -131,19 +131,17 @@ jobs:
             AUTH_ENABLED=false
 
 
-      - name: Export .env values to GitHub Actions
+      - name: Export URLs to GitHub Env
         run: |
-          FRONTEND=$(cat /tmp/frontend_url.txt 2>/dev/null || echo "")
-          ADMIN=$(cat /tmp/admin_url.txt 2>/dev/null || echo "")
-
+          FRONTEND=$(cat /tmp/frontend_url.txt || echo "")
+          ADMIN=$(cat /tmp/admin_url.txt || echo "")
           echo "FRONTEND_WEBSITE_URL=$FRONTEND" >> $GITHUB_ENV
           echo "ADMIN_WEBSITE_URL=$ADMIN" >> $GITHUB_ENV
 
-
-      - name: Display frontend and admin URLs
-        run: |
-          echo "FRONTEND_WEBSITE_URL: $FRONTEND_WEBSITE_URL"
-          echo "ADMIN_WEBSITE_URL: $ADMIN_WEBSITE_URL"
+            - name: Display frontend and admin URLs
+              run: |
+                echo "FRONTEND_WEBSITE_URL: $FRONTEND_WEBSITE_URL"
+                echo "ADMIN_WEBSITE_URL: $ADMIN_WEBSITE_URL"
 
 
   cleanup:
