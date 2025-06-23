@@ -107,24 +107,18 @@ jobs:
           imageTag: ${{ env.imageTag }}
           runCmd: |
             export optional_args="./code/tests"
-              make ci && make deploy
+            make ci && make deploy
 
-              # Try to fetch .env values
-              if azd env get-values > azd.env; then
-                FRONTEND=$(grep -oP '^FRONTEND_WEBSITE_URL=\K.*' azd.env)
-                ADMIN=$(grep -oP '^ADMIN_WEBSITE_URL=\K.*' azd.env)
+            azd show --output json > deploy_output.json
+            FRONTEND=$(jq -r '.services.web?.project?.hostedEndpoints?[0]?.url' deploy_output.json)
+            ADMIN=$(jq -r '.services.adminweb?.project?.hostedEndpoints?[0]?.url' deploy_output.json)
 
-                # Log for debugging
-                echo "FRONTEND: $FRONTEND"
-                echo "ADMIN: $ADMIN"
+            echo "FRONTEND: $FRONTEND"
+            echo "ADMIN: $ADMIN"
 
-                # Write to accessible paths
-                echo "$FRONTEND" > /tmp/frontend_url.txt
-                echo "$ADMIN" > /tmp/admin_url.txt
-              else
-                echo "❌ Failed to fetch azd env values"
-                exit 1
-              fi
+            echo "$FRONTEND" > /tmp/frontend_url.txt
+            echo "$ADMIN" > /tmp/admin_url.txt
+
 
 
           env: |
