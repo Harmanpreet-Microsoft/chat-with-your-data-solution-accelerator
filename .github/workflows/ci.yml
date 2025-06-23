@@ -131,12 +131,12 @@ jobs:
             AUTH_ENABLED=false
 
 
-      - name: Export URLs to GitHub Env
+      - name: Export endpoint URLs to GitHub env
         run: |
-            FRONTEND=$(cat /tmp/frontend_url.txt || echo "")
-            ADMIN=$(cat /tmp/admin_url.txt || echo "")
-            echo "FRONTEND_WEBSITE_URL=$FRONTEND" >> $GITHUB_ENV
-            echo "ADMIN_WEBSITE_URL=$ADMIN" >> $GITHUB_ENV
+          FRONTEND=$(cat frontend_url.txt || echo "")
+          ADMIN=$(cat admin_url.txt || echo "")
+          echo "FRONTEND_WEBSITE_URL=$FRONTEND" >> $GITHUB_ENV
+          echo "ADMIN_WEBSITE_URL=$ADMIN" >> $GITHUB_ENV
 
 
   cleanup:
