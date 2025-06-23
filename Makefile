@@ -69,11 +69,12 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@azd deploy adminweb --no-prompt
 	@azd env set AUTH_ENABLED false
 
-	# Write endpoint URLs to a file GitHub Actions can read
+	# Dump azd output to file
 	@azd show --output json > /tmp/azd-show.json
 
-	@jq -r '.services.web.project.hostedEndpoints[0].url // ""' /tmp/azd-show.json > /tmp/frontend_url.txt
-	@jq -r '.services.adminweb.project.hostedEndpoints[0].url // ""' /tmp/azd-show.json > /tmp/admin_url.txt
+	# Extract URLs using jq from the correct location in the JSON
+	@jq -r '.services.web?.project?.hostedEndpoints?[0]?.url // ""' /tmp/azd-show.json > /tmp/frontend_url.txt
+	@jq -r '.services.adminweb?.project?.hostedEndpoints?[0]?.url // ""' /tmp/azd-show.json > /tmp/admin_url.txt
 
 
 destroy: azd-login ## 🧨 Destroy everything in Azure
