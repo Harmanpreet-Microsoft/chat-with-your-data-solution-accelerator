@@ -122,10 +122,16 @@ jobs:
         run: |
           # Check if the files exist and read them
           if [ -f "frontend_url.txt" ]; then
-            FRONTEND_URL=$(cat frontend_url.txt)
-            echo "Frontend URL found: $FRONTEND_URL"
-            echo "frontend_url=$FRONTEND_URL" >> $GITHUB_OUTPUT
-            echo "FRONTEND_WEBSITE_URL=$FRONTEND_URL" >> $GITHUB_ENV
+            FRONTEND_URL=$(cat frontend_url.txt | tr -d '\n\r' | xargs)
+            if [ -n "$FRONTEND_URL" ] && [ "$FRONTEND_URL" != "null" ] && [ "$FRONTEND_URL" != "" ]; then
+              echo "Frontend URL found: $FRONTEND_URL"
+              echo "frontend_url=$FRONTEND_URL" >> $GITHUB_OUTPUT
+              echo "FRONTEND_WEBSITE_URL=$FRONTEND_URL" >> $GITHUB_ENV
+            else
+              echo "Frontend URL is empty or null"
+              echo "frontend_url=" >> $GITHUB_OUTPUT
+              echo "FRONTEND_WEBSITE_URL=" >> $GITHUB_ENV
+            fi
           else
             echo "frontend_url.txt not found"
             echo "frontend_url=" >> $GITHUB_OUTPUT
@@ -133,14 +139,31 @@ jobs:
           fi
 
           if [ -f "admin_url.txt" ]; then
-            ADMIN_URL=$(cat admin_url.txt)
-            echo "Admin URL found: $ADMIN_URL"
-            echo "admin_url=$ADMIN_URL" >> $GITHUB_OUTPUT
-            echo "ADMIN_WEBSITE_URL=$ADMIN_URL" >> $GITHUB_ENV
+            ADMIN_URL=$(cat admin_url.txt | tr -d '\n\r' | xargs)
+            if [ -n "$ADMIN_URL" ] && [ "$ADMIN_URL" != "null" ] && [ "$ADMIN_URL" != "" ]; then
+              echo "Admin URL found: $ADMIN_URL"
+              echo "admin_url=$ADMIN_URL" >> $GITHUB_OUTPUT
+              echo "ADMIN_WEBSITE_URL=$ADMIN_URL" >> $GITHUB_ENV
+            else
+              echo "Admin URL is empty or null"
+              echo "admin_url=" >> $GITHUB_OUTPUT
+              echo "ADMIN_WEBSITE_URL=" >> $GITHUB_ENV
+            fi
           else
             echo "admin_url.txt not found"
             echo "admin_url=" >> $GITHUB_OUTPUT
             echo "ADMIN_WEBSITE_URL=" >> $GITHUB_ENV
+          fi
+
+          # Additional debugging
+          echo "=== Deployment Files Debug ==="
+          ls -la *.txt || echo "No .txt files found"
+          echo "=== Deploy Output Debug ==="
+          if [ -f "deploy_output.json" ]; then
+            echo "deploy_output.json exists"
+            cat deploy_output.json | jq -r '.services // "No services found"'
+          else
+            echo "deploy_output.json not found"
           fi
 
       - name: Display URLs

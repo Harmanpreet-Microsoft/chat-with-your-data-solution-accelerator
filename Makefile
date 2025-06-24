@@ -68,29 +68,35 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@azd deploy function --no-prompt || true
 	@azd deploy adminweb --no-prompt
 	@azd env set AUTH_ENABLED false
-	@azd show --output json | jq
 
-	# Get environment values and extract URLs
-	@azd env get-values > azd.env
-	@echo "Contents of azd.env:" && cat azd.env
+	# Get the JSON output and extract URLs directly
+	@echo "Getting deployment information..."
+	@azd show --output json > deploy_output.json
+	@cat deploy_output.json | jq '.'
 
-	# Extract URLs and write to files in current directory (not /tmp)
-	@grep -oP '^FRONTEND_WEBSITE_URL=\K.*' azd.env > frontend_url.txt || (echo "" > frontend_url.txt)
-	@grep -oP '^ADMIN_WEBSITE_URL=\K.*' azd.env > admin_url.txt || (echo "" > admin_url.txt)
+	# Extract URLs from JSON output using jq
+	@echo "Extracting URLs from JSON..."
+	@jq -r '.services.web?.project?.hostedEndpoints?[0]?.url // ""' deploy_output.json > frontend_url.txt
+	@jq -r '.services.adminweb?.project?.hostedEndpoints?[0]?.url // ""' deploy_output.json > admin_url.txt
 
 	# Debug: Show what we extracted
-	@echo "Frontend URL extracted:" && cat frontend_url.txt || echo "No frontend_url.txt"
-	@echo "Admin URL extracted:" && cat admin_url.txt || echo "No admin_url.txt"
+	@echo "Frontend URL extracted:" && cat frontend_url.txt
+	@echo "Admin URL extracted:" && cat admin_url.txt
 
-	# Also try alternative extraction method if the first one fails
-	@if [ ! -s frontend_url.txt ]; then \
-		echo "Trying alternative frontend URL extraction..."; \
-		azd env get-value FRONTEND_WEBSITE_URL > frontend_url.txt 2>/dev/null || echo "" > frontend_url.txt; \
+	# Fallback: Try environment variables if JSON extraction fails
+	@if [ ! -s frontend_url.txt ] || [ "$(cat frontend_url.txt)" = "" ]; then \
+		echo "Trying environment variable extraction for frontend..."; \
+		azd env get-values | grep FRONTEND_WEBSITE_URL | cut -d'=' -f2- | tr -d '"' > frontend_url.txt 2>/dev/null || echo "" > frontend_url.txt; \
 	fi
-	@if [ ! -s admin_url.txt ]; then \
-		echo "Trying alternative admin URL extraction..."; \
-		azd env get-value ADMIN_WEBSITE_URL > admin_url.txt 2>/dev/null || echo "" > admin_url.txt; \
+	@if [ ! -s admin_url.txt ] || [ "$(cat admin_url.txt)" = "" ]; then \
+		echo "Trying environment variable extraction for admin..."; \
+		azd env get-values | grep ADMIN_WEBSITE_URL | cut -d'=' -f2- | tr -d '"' > admin_url.txt 2>/dev/null || echo "" > admin_url.txt; \
 	fi
+
+	# Final debug output
+	@echo "Final Frontend URL:" && cat frontend_url.txt
+	@echo "Final Admin URL:" && cat admin_url.txt
+
 
 
 destroy: azd-login ## 🧨 Destroy everything in Azure
