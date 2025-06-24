@@ -70,13 +70,27 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@azd env set AUTH_ENABLED false
 	@azd show --output json | jq
 
-
-	# Dump azd output to file
-	@azd show --output json > /tmp/azd-show.json
-
+	# Get environment values and extract URLs
 	@azd env get-values > azd.env
+	@echo "Contents of azd.env:" && cat azd.env
+
+	# Extract URLs and write to files in current directory (not /tmp)
 	@grep -oP '^FRONTEND_WEBSITE_URL=\K.*' azd.env > frontend_url.txt || (echo "" > frontend_url.txt)
 	@grep -oP '^ADMIN_WEBSITE_URL=\K.*' azd.env > admin_url.txt || (echo "" > admin_url.txt)
+
+	# Debug: Show what we extracted
+	@echo "Frontend URL extracted:" && cat frontend_url.txt || echo "No frontend_url.txt"
+	@echo "Admin URL extracted:" && cat admin_url.txt || echo "No admin_url.txt"
+
+	# Also try alternative extraction method if the first one fails
+	@if [ ! -s frontend_url.txt ]; then \
+		echo "Trying alternative frontend URL extraction..."; \
+		azd env get-value FRONTEND_WEBSITE_URL > frontend_url.txt 2>/dev/null || echo "" > frontend_url.txt; \
+	fi
+	@if [ ! -s admin_url.txt ]; then \
+		echo "Trying alternative admin URL extraction..."; \
+		azd env get-value ADMIN_WEBSITE_URL > admin_url.txt 2>/dev/null || echo "" > admin_url.txt; \
+	fi
 
 
 destroy: azd-login ## 🧨 Destroy everything in Azure
