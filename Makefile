@@ -75,8 +75,9 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@azd show --output json > /tmp/azd-show.json
 
 	@azd env get-values > azd.env
-	@grep -oP '^FRONTEND_WEBSITE_URL=\K.*' azd.env > frontend_url.txt || echo "" > frontend_url.txt
-	@grep -oP '^ADMIN_WEBSITE_URL=\K.*' azd.env > admin_url.txt || echo "" > admin_url.txt
+	@grep -oP '^FRONTEND_WEBSITE_URL=\K.*' azd.env > frontend_url.txt || (echo "" > frontend_url.txt)
+	@grep -oP '^ADMIN_WEBSITE_URL=\K.*' azd.env > admin_url.txt || (echo "" > admin_url.txt)
+
 
 destroy: azd-login ## 🧨 Destroy everything in Azure
 	@echo -e "\e[34m$@\e[0m" || true
