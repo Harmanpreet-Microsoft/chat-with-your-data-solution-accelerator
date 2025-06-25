@@ -63,11 +63,16 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@echo -e "\e[34m$@\e[0m" || true
 	@azd env new ${AZURE_ENV_NAME}
 	@azd env set AZURE_APP_SERVICE_HOSTING_MODEL code --no-prompt
+	@azd env set AUTH_ENABLED false --no-prompt
 	@azd provision --no-prompt
 	@azd deploy web --no-prompt || true
 	@azd deploy function --no-prompt || true
 	@azd deploy adminweb --no-prompt
-	@azd env set AUTH_ENABLED false
+
+	# Explicitly disable authentication on both App Services after deployment
+	@echo "Disabling authentication on App Services..."
+	@az webapp auth update --name $$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"') --resource-group $$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"') --enabled false || echo "Failed to disable auth on frontend"
+	@az webapp auth update --name $$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"') --resource-group $$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"') --enabled false || echo "Failed to disable auth on admin"
 
 	# Get the JSON output and extract URLs directly
 	@echo "Getting deployment information..."
@@ -96,7 +101,6 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	# Final debug output
 	@echo "Final Frontend URL:" && cat frontend_url.txt
 	@echo "Final Admin URL:" && cat admin_url.txt
-
 
 
 destroy: azd-login ## 🧨 Destroy everything in Azure

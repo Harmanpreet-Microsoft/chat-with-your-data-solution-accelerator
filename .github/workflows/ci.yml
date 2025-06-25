@@ -197,6 +197,21 @@ jobs:
           echo "Frontend URL: ${{ env.FRONTEND_WEBSITE_URL }}"
           echo "Admin URL: ${{ env.ADMIN_WEBSITE_URL }}"
 
+      - name: Disable App Service Authentication
+        run: |
+          # Login to Azure CLI
+          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+          az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+          # Get resource group and app names from azd environment
+          RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"')
+          FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"')
+          ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"')
+
+          # Disable authentication
+          az webapp auth update --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --enabled false
+          az webapp auth update --name $ADMIN_APP --resource-group $RESOURCE_GROUP --enabled false
+
 
 
 
