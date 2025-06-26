@@ -66,6 +66,8 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@azd env set AUTH_ENABLED false --no-prompt
 	@azd env set AZURE_USE_AUTHENTICATION false --no-prompt
 	@azd env set AZURE_ENABLE_AUTH false --no-prompt
+	@azd env set REQUIRE_AUTHENTICATION false --no-prompt
+	@azd env set AUTHENTICATION_ENABLED false --no-prompt
 
 	# Provision infrastructure with explicit no-auth configuration
 	@echo "Provisioning Azure resources without authentication..."
@@ -85,29 +87,71 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 
 	# Get resource information
 	@echo "Getting deployment information..."
-	@RESOURCE_GROUP=$$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
-	FRONTEND_APP=$$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
-	ADMIN_APP=$$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
-	echo "Resource Group: $$RESOURCE_GROUP"; \
-	echo "Frontend App: $$FRONTEND_APP"; \
-	echo "Admin App: $$ADMIN_APP"
+	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
+	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	echo "Resource Group: $RESOURCE_GROUP"; \
+	echo "Frontend App: $FRONTEND_APP"; \
+	echo "Admin App: $ADMIN_APP"
 
-	# Ensure we're logged in to Azure CLI and disable authentication
+	# Ensure we're logged in to Azure CLI and configure for no-auth testing
 	@echo "Configuring App Services for testing..."
 	@az account show >/dev/null 2>&1 || az login --service-principal -u ${AZURE_CLIENT_ID} -p ${AZURE_CLIENT_SECRET} --tenant-id ${AZURE_TENANT_ID}
 	@az account set --subscription ${AZURE_SUBSCRIPTION_ID}
 
+	# Configure application settings to disable authentication requirements
+	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
+	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	echo "Setting application configuration for no-auth testing..."; \
+	az webapp config appsettings set --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --settings \
+		"AUTH_ENABLED=false" \
+		"AZURE_USE_AUTHENTICATION=false" \
+		"AZURE_ENABLE_AUTH=false" \
+		"REQUIRE_AUTHENTICATION=false" \
+		"AUTHENTICATION_ENABLED=false" \
+		"AZURE_CLIENT_ID=" \
+		"AZURE_CLIENT_SECRET=" \
+		"AZURE_TENANT_ID=" \
+		"AZURE_AD_CLIENT_ID=" \
+		"AZURE_AD_CLIENT_SECRET=" \
+		"AZURE_AD_TENANT_ID=" || echo "Failed to set frontend app settings"; \
+	az webapp config appsettings set --name $ADMIN_APP --resource-group $RESOURCE_GROUP --settings \
+		"AUTH_ENABLED=false" \
+		"AZURE_USE_AUTHENTICATION=false" \
+		"AZURE_ENABLE_AUTH=false" \
+		"REQUIRE_AUTHENTICATION=false" \
+		"AUTHENTICATION_ENABLED=false" \
+		"AZURE_CLIENT_ID=" \
+		"AZURE_CLIENT_SECRET=" \
+		"AZURE_TENANT_ID=" \
+		"AZURE_AD_CLIENT_ID=" \
+		"AZURE_AD_CLIENT_SECRET=" \
+		"AZURE_AD_TENANT_ID=" || echo "Failed to set admin app settings"
+
 	# Disable authentication with comprehensive approach
-	@RESOURCE_GROUP=$$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
-	FRONTEND_APP=$$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
-	ADMIN_APP=$$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
-	echo "Disabling authentication on $$FRONTEND_APP..."; \
-	az webapp auth update --name $$FRONTEND_APP --resource-group $$RESOURCE_GROUP --enabled false || echo "Failed to disable auth on frontend"; \
-	echo "Disabling authentication on $$ADMIN_APP..."; \
-	az webapp auth update --name $$ADMIN_APP --resource-group $$RESOURCE_GROUP --enabled false || echo "Failed to disable auth on admin"; \
+	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
+	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	echo "Disabling authentication on $FRONTEND_APP..."; \
+	az webapp auth update --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --enabled false || echo "Failed to disable auth on frontend"; \
+	echo "Disabling authentication on $ADMIN_APP..."; \
+	az webapp auth update --name $ADMIN_APP --resource-group $RESOURCE_GROUP --enabled false || echo "Failed to disable auth on admin"; \
 	echo "Setting up CORS for testing..."; \
-	az webapp cors add --name $$FRONTEND_APP --resource-group $$RESOURCE_GROUP --allowed-origins "*" || echo "CORS setup failed for frontend"; \
-	az webapp cors add --name $$ADMIN_APP --resource-group $$RESOURCE_GROUP --allowed-origins "*" || echo "CORS setup failed for admin"
+	az webapp cors add --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --allowed-origins "*" || echo "CORS setup failed for frontend"; \
+	az webapp cors add --name $ADMIN_APP --resource-group $RESOURCE_GROUP --allowed-origins "*" || echo "CORS setup failed for admin"
+
+	# Restart apps to ensure new settings take effect
+	@echo "Restarting apps to apply new settings..."
+	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
+	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	az webapp restart --name $FRONTEND_APP --resource-group $RESOURCE_GROUP || echo "Failed to restart frontend app"; \
+	az webapp restart --name $ADMIN_APP --resource-group $RESOURCE_GROUP || echo "Failed to restart admin app"
+
+	# Wait for apps to restart
+	@echo "Waiting for apps to restart..."
+	@sleep 60
 
 	# Get the JSON output and extract URLs directly
 	@echo "Extracting deployment URLs..."
@@ -124,11 +168,11 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@echo "Admin URL extracted:" && cat admin_url.txt
 
 	# Fallback: Try environment variables if JSON extraction fails
-	@if [ ! -s frontend_url.txt ] || [ "$$(cat frontend_url.txt)" = "" ]; then \
+	@if [ ! -s frontend_url.txt ] || [ "$(cat frontend_url.txt)" = "" ]; then \
 		echo "Trying environment variable extraction for frontend..."; \
 		azd env get-values | grep FRONTEND_WEBSITE_URL | cut -d'=' -f2- | tr -d '"' > frontend_url.txt 2>/dev/null || echo "" > frontend_url.txt; \
 	fi
-	@if [ ! -s admin_url.txt ] || [ "$$(cat admin_url.txt)" = "" ]; then \
+	@if [ ! -s admin_url.txt ] || [ "$(cat admin_url.txt)" = "" ]; then \
 		echo "Trying environment variable extraction for admin..."; \
 		azd env get-values | grep ADMIN_WEBSITE_URL | cut -d'=' -f2- | tr -d '"' > admin_url.txt 2>/dev/null || echo "" > admin_url.txt; \
 	fi
@@ -139,15 +183,15 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@echo "Admin URL:" && cat admin_url.txt
 
 	# Verify authentication status
-	@RESOURCE_GROUP=$$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
-	FRONTEND_APP=$$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
-	ADMIN_APP=$$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
+	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
 	echo "Verifying authentication status..."; \
-	FRONTEND_AUTH=$$(az webapp auth show --name $$FRONTEND_APP --resource-group $$RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false"); \
-	ADMIN_AUTH=$$(az webapp auth show --name $$ADMIN_APP --resource-group $$RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false"); \
-	echo "Frontend Auth Enabled: $$FRONTEND_AUTH"; \
-	echo "Admin Auth Enabled: $$ADMIN_AUTH"; \
-	if [ "$$FRONTEND_AUTH" = "false" ] && [ "$$ADMIN_AUTH" = "false" ]; then \
+	FRONTEND_AUTH=$(az webapp auth show --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false"); \
+	ADMIN_AUTH=$(az webapp auth show --name $ADMIN_APP --resource-group $RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false"); \
+	echo "Frontend Auth Enabled: $FRONTEND_AUTH"; \
+	echo "Admin Auth Enabled: $ADMIN_AUTH"; \
+	if [ "$FRONTEND_AUTH" = "false" ] && [ "$ADMIN_AUTH" = "false" ]; then \
 		echo "✅ Authentication successfully disabled on both apps"; \
 	else \
 		echo "⚠️ Warning: Authentication may still be enabled"; \

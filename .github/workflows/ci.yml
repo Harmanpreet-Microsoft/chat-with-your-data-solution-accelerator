@@ -134,6 +134,8 @@ jobs:
             AZURE_ENV_NAME
             AZURE_LOCATION
             AUTH_ENABLED=false
+            AZURE_USE_AUTHENTICATION=false
+            AZURE_ENABLE_AUTH=false
 
       - name: Extract URLs from deployment
         id: extract-urls
@@ -218,6 +220,36 @@ jobs:
           az webapp show --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --query "state" --output tsv
           az webapp show --name $ADMIN_APP --resource-group $RESOURCE_GROUP --query "state" --output tsv
 
+          # Configure application settings to disable authentication requirements
+          echo "Setting application configuration for no-auth testing..."
+
+          # Set application settings to disable authentication
+          az webapp config appsettings set --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --settings \
+            "AUTH_ENABLED=false" \
+            "AZURE_USE_AUTHENTICATION=false" \
+            "AZURE_ENABLE_AUTH=false" \
+            "REQUIRE_AUTHENTICATION=false" \
+            "AUTHENTICATION_ENABLED=false" \
+            "AZURE_CLIENT_ID=" \
+            "AZURE_CLIENT_SECRET=" \
+            "AZURE_TENANT_ID=" \
+            "AZURE_AD_CLIENT_ID=" \
+            "AZURE_AD_CLIENT_SECRET=" \
+            "AZURE_AD_TENANT_ID=" || echo "Failed to set frontend app settings"
+
+          az webapp config appsettings set --name $ADMIN_APP --resource-group $RESOURCE_GROUP --settings \
+            "AUTH_ENABLED=false" \
+            "AZURE_USE_AUTHENTICATION=false" \
+            "AZURE_ENABLE_AUTH=false" \
+            "REQUIRE_AUTHENTICATION=false" \
+            "AUTHENTICATION_ENABLED=false" \
+            "AZURE_CLIENT_ID=" \
+            "AZURE_CLIENT_SECRET=" \
+            "AZURE_TENANT_ID=" \
+            "AZURE_AD_CLIENT_ID=" \
+            "AZURE_AD_CLIENT_SECRET=" \
+            "AZURE_AD_TENANT_ID=" || echo "Failed to set admin app settings"
+
           # Disable authentication with retry logic
           echo "Disabling authentication on App Services..."
 
@@ -249,6 +281,15 @@ jobs:
           # Set CORS to allow all origins for testing
           az webapp cors add --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --allowed-origins "*" || echo "CORS already configured or failed"
           az webapp cors add --name $ADMIN_APP --resource-group $RESOURCE_GROUP --allowed-origins "*" || echo "CORS already configured or failed"
+
+          # Restart apps to ensure new settings take effect
+          echo "Restarting apps to apply new settings..."
+          az webapp restart --name $FRONTEND_APP --resource-group $RESOURCE_GROUP || echo "Failed to restart frontend app"
+          az webapp restart --name $ADMIN_APP --resource-group $RESOURCE_GROUP || echo "Failed to restart admin app"
+
+          # Wait for apps to restart
+          echo "Waiting for apps to restart..."
+          sleep 60
 
           # Verify authentication is disabled
           echo "Verifying authentication status..."
