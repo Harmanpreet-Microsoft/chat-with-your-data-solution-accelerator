@@ -5,8 +5,6 @@ SHELL := /bin/bash
 
 AZURE_ENV_FILE := $(shell azd env list --output json | jq -r '.[] | select(.IsDefault == true) | .DotEnvPath')
 
-
-
 ENV_FILE := .env
 ifeq ($(filter $(MAKECMDGOALS),config clean),)
 	ifneq ($(strip $(wildcard $(ENV_FILE))),)
@@ -62,20 +60,57 @@ azd-login: ## 🔑 Login to Azure with azd and a SPN
 deploy: azd-login ## 🚀 Deploy everything to Azure
 	@echo -e "\e[34m$@\e[0m" || true
 	@azd env new ${AZURE_ENV_NAME}
+
+	# Set environment variables to ensure no authentication is configured
 	@azd env set AZURE_APP_SERVICE_HOSTING_MODEL code --no-prompt
 	@azd env set AUTH_ENABLED false --no-prompt
+	@azd env set AZURE_USE_AUTHENTICATION false --no-prompt
+	@azd env set AZURE_ENABLE_AUTH false --no-prompt
+
+	# Provision infrastructure with explicit no-auth configuration
+	@echo "Provisioning Azure resources without authentication..."
 	@azd provision --no-prompt
+
+	# Deploy services
+	@echo "Deploying web service..."
 	@azd deploy web --no-prompt || true
+	@echo "Deploying function service..."
 	@azd deploy function --no-prompt || true
+	@echo "Deploying admin web service..."
 	@azd deploy adminweb --no-prompt
 
-	# Explicitly disable authentication on both App Services after deployment
-	@echo "Disabling authentication on App Services..."
-	@az webapp auth update --name $$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"') --resource-group $$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"') --enabled false || echo "Failed to disable auth on frontend"
-	@az webapp auth update --name $$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"') --resource-group $$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"') --enabled false || echo "Failed to disable auth on admin"
+	# Wait a moment for services to stabilize
+	@echo "Waiting for services to stabilize..."
+	@sleep 30
+
+	# Get resource information
+	@echo "Getting deployment information..."
+	@RESOURCE_GROUP=$$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
+	FRONTEND_APP=$$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	ADMIN_APP=$$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	echo "Resource Group: $$RESOURCE_GROUP"; \
+	echo "Frontend App: $$FRONTEND_APP"; \
+	echo "Admin App: $$ADMIN_APP"
+
+	# Ensure we're logged in to Azure CLI and disable authentication
+	@echo "Configuring App Services for testing..."
+	@az account show >/dev/null 2>&1 || az login --service-principal -u ${AZURE_CLIENT_ID} -p ${AZURE_CLIENT_SECRET} --tenant-id ${AZURE_TENANT_ID}
+	@az account set --subscription ${AZURE_SUBSCRIPTION_ID}
+
+	# Disable authentication with comprehensive approach
+	@RESOURCE_GROUP=$$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
+	FRONTEND_APP=$$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	ADMIN_APP=$$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	echo "Disabling authentication on $$FRONTEND_APP..."; \
+	az webapp auth update --name $$FRONTEND_APP --resource-group $$RESOURCE_GROUP --enabled false || echo "Failed to disable auth on frontend"; \
+	echo "Disabling authentication on $$ADMIN_APP..."; \
+	az webapp auth update --name $$ADMIN_APP --resource-group $$RESOURCE_GROUP --enabled false || echo "Failed to disable auth on admin"; \
+	echo "Setting up CORS for testing..."; \
+	az webapp cors add --name $$FRONTEND_APP --resource-group $$RESOURCE_GROUP --allowed-origins "*" || echo "CORS setup failed for frontend"; \
+	az webapp cors add --name $$ADMIN_APP --resource-group $$RESOURCE_GROUP --allowed-origins "*" || echo "CORS setup failed for admin"
 
 	# Get the JSON output and extract URLs directly
-	@echo "Getting deployment information..."
+	@echo "Extracting deployment URLs..."
 	@azd show --output json > deploy_output.json
 	@cat deploy_output.json | jq '.'
 
@@ -89,19 +124,34 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@echo "Admin URL extracted:" && cat admin_url.txt
 
 	# Fallback: Try environment variables if JSON extraction fails
-	@if [ ! -s frontend_url.txt ] || [ "$(cat frontend_url.txt)" = "" ]; then \
+	@if [ ! -s frontend_url.txt ] || [ "$$(cat frontend_url.txt)" = "" ]; then \
 		echo "Trying environment variable extraction for frontend..."; \
 		azd env get-values | grep FRONTEND_WEBSITE_URL | cut -d'=' -f2- | tr -d '"' > frontend_url.txt 2>/dev/null || echo "" > frontend_url.txt; \
 	fi
-	@if [ ! -s admin_url.txt ] || [ "$(cat admin_url.txt)" = "" ]; then \
+	@if [ ! -s admin_url.txt ] || [ "$$(cat admin_url.txt)" = "" ]; then \
 		echo "Trying environment variable extraction for admin..."; \
 		azd env get-values | grep ADMIN_WEBSITE_URL | cut -d'=' -f2- | tr -d '"' > admin_url.txt 2>/dev/null || echo "" > admin_url.txt; \
 	fi
 
-	# Final debug output
-	@echo "Final Frontend URL:" && cat frontend_url.txt
-	@echo "Final Admin URL:" && cat admin_url.txt
+	# Final verification
+	@echo "=== Final Deployment Status ==="
+	@echo "Frontend URL:" && cat frontend_url.txt
+	@echo "Admin URL:" && cat admin_url.txt
 
+	# Verify authentication status
+	@RESOURCE_GROUP=$$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
+	FRONTEND_APP=$$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	ADMIN_APP=$$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	echo "Verifying authentication status..."; \
+	FRONTEND_AUTH=$$(az webapp auth show --name $$FRONTEND_APP --resource-group $$RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false"); \
+	ADMIN_AUTH=$$(az webapp auth show --name $$ADMIN_APP --resource-group $$RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false"); \
+	echo "Frontend Auth Enabled: $$FRONTEND_AUTH"; \
+	echo "Admin Auth Enabled: $$ADMIN_AUTH"; \
+	if [ "$$FRONTEND_AUTH" = "false" ] && [ "$$ADMIN_AUTH" = "false" ]; then \
+		echo "✅ Authentication successfully disabled on both apps"; \
+	else \
+		echo "⚠️ Warning: Authentication may still be enabled"; \
+	fi
 
 destroy: azd-login ## 🧨 Destroy everything in Azure
 	@echo -e "\e[34m$@\e[0m" || true

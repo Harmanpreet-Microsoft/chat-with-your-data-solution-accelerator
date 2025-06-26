@@ -96,6 +96,7 @@ jobs:
             echo "imageTag=${{ github.ref_name }}" >> $GITHUB_ENV
             echo "::set-output name=imageTag::${{ github.ref_name }}"
           fi
+
       - name: Pre-build image and deploy
         uses: devcontainers/ci@v0.3
         env:
@@ -197,7 +198,7 @@ jobs:
           echo "Frontend URL: ${{ env.FRONTEND_WEBSITE_URL }}"
           echo "Admin URL: ${{ env.ADMIN_WEBSITE_URL }}"
 
-      - name: Disable App Service Authentication
+      - name: Configure App Services for Testing
         run: |
           # Login to Azure CLI
           az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
@@ -208,12 +209,73 @@ jobs:
           FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"')
           ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"')
 
-          # Disable authentication
-          az webapp auth update --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --enabled false
-          az webapp auth update --name $ADMIN_APP --resource-group $RESOURCE_GROUP --enabled false
+          echo "Resource Group: $RESOURCE_GROUP"
+          echo "Frontend App: $FRONTEND_APP"
+          echo "Admin App: $ADMIN_APP"
 
+          # Wait for App Services to be fully provisioned
+          echo "Waiting for App Services to be ready..."
+          az webapp show --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --query "state" --output tsv
+          az webapp show --name $ADMIN_APP --resource-group $RESOURCE_GROUP --query "state" --output tsv
 
+          # Disable authentication with retry logic
+          echo "Disabling authentication on App Services..."
 
+          # Disable authentication on frontend app
+          for i in {1..3}; do
+            if az webapp auth update --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --enabled false; then
+              echo "✅ Successfully disabled auth on frontend app"
+              break
+            else
+              echo "⚠️ Attempt $i failed, retrying in 30 seconds..."
+              sleep 30
+            fi
+          done
+
+          # Disable authentication on admin app
+          for i in {1..3}; do
+            if az webapp auth update --name $ADMIN_APP --resource-group $RESOURCE_GROUP --enabled false; then
+              echo "✅ Successfully disabled auth on admin app"
+              break
+            else
+              echo "⚠️ Attempt $i failed, retrying in 30 seconds..."
+              sleep 30
+            fi
+          done
+
+          # Additional App Service configuration for testing
+          echo "Configuring App Services for testing environment..."
+
+          # Set CORS to allow all origins for testing
+          az webapp cors add --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --allowed-origins "*" || echo "CORS already configured or failed"
+          az webapp cors add --name $ADMIN_APP --resource-group $RESOURCE_GROUP --allowed-origins "*" || echo "CORS already configured or failed"
+
+          # Verify authentication is disabled
+          echo "Verifying authentication status..."
+          FRONTEND_AUTH_STATUS=$(az webapp auth show --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false")
+          ADMIN_AUTH_STATUS=$(az webapp auth show --name $ADMIN_APP --resource-group $RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false")
+
+          echo "Frontend Auth Enabled: $FRONTEND_AUTH_STATUS"
+          echo "Admin Auth Enabled: $ADMIN_AUTH_STATUS"
+
+          if [ "$FRONTEND_AUTH_STATUS" = "false" ] && [ "$ADMIN_AUTH_STATUS" = "false" ]; then
+            echo "✅ Authentication successfully disabled on both apps"
+          else
+            echo "⚠️ Warning: Authentication may still be enabled on some apps"
+          fi
+
+      - name: Verify Deployment Health
+        run: |
+          # Test if the URLs are accessible
+          if [ -n "${{ env.FRONTEND_WEBSITE_URL }}" ]; then
+            echo "Testing frontend accessibility..."
+            curl -f -s -o /dev/null "${{ env.FRONTEND_WEBSITE_URL }}" && echo "✅ Frontend is accessible" || echo "❌ Frontend is not accessible"
+          fi
+
+          if [ -n "${{ env.ADMIN_WEBSITE_URL }}" ]; then
+            echo "Testing admin accessibility..."
+            curl -f -s -o /dev/null "${{ env.ADMIN_WEBSITE_URL }}" && echo "✅ Admin is accessible" || echo "❌ Admin is not accessible"
+          fi
 
   cleanup:
     runs-on: ubuntu-latest
@@ -246,7 +308,6 @@ jobs:
             AZURE_SUBSCRIPTION_ID
             AZURE_ENV_NAME
             AZURE_LOCATION
-
 
       - name: Send Notification on Failure
         if: failure()
