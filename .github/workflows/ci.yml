@@ -224,12 +224,11 @@ jobs:
 
               # Step 1: Disable authentication at platform level
               echo "Step 1: Disabling platform authentication..."
-              az webapp auth update --name "$app_name" --resource-group "$resource_group" --enabled false || echo "Failed to disable platform auth"
+              az webapp auth update --name "$app_name" --resource-group "$resource_group" --enabled false --api-version 2025-04-01 || echo "Failed to disable platform auth"
 
               # Step 2: Set unauthenticated client action to allow anonymous
               echo "Step 2: Setting anonymous access..."
-              az webapp auth update --name "$app_name" --resource-group "$resource_group" \
-                  --unauthenticated-client-action AllowAnonymous || echo "Failed to set anonymous access"
+              az webapp auth update --name "$app_name" --resource-group "$resource_group" --unauthenticated-client-action AllowAnonymous --api-version 2025-04-01 || echo "Failed to set anonymous access"
 
               # Step 3: Set comprehensive application settings
               echo "Step 3: Setting application settings..."
@@ -248,22 +247,21 @@ jobs:
                   "AZURE_AD_CLIENT_SECRET=" \
                   "AZURE_AD_TENANT_ID=" \
                   "AZURE_AD_INSTANCE=" \
-                  "AZURE_AD_DOMAIN=" || echo "Failed to set app settings"
+                  "AZURE_AD_DOMAIN=" --api-version 2025-04-01 || echo "Failed to set app settings"
 
               # Step 4: Force disable using REST API
               echo "Step 4: Force disabling via REST API..."
               az rest --method PUT \
-                  --url "https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/$resource_group/providers/Microsoft.Web/sites/$app_name/config/authsettings?api-version=2021-02-01" \
+                  --url "https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/$resource_group/providers/Microsoft.Web/sites/$app_name/config/authsettings?api-version=2025-04-01" \
                   --body '{"properties":{"enabled":false,"unauthenticatedClientAction":"AllowAnonymous","defaultProvider":"","clientId":"","issuer":"","allowedAudiences":[],"additionalLoginParams":[],"aadClaimsAuthorization":"","googleClientId":"","googleClientSecret":"","facebookAppId":"","facebookAppSecret":"","twitterConsumerKey":"","twitterConsumerSecret":"","microsoftAccountClientId":"","microsoftAccountClientSecret":""}}' || echo "REST call failed for $app_name"
 
               # Step 5: Remove any authentication providers
               echo "Step 5: Removing authentication providers..."
-              az webapp auth microsoft update --name "$app_name" --resource-group "$resource_group" \
-                  --client-id "" --client-secret "" --tenant-id "" 2>/dev/null || echo "No Microsoft auth to remove"
+              az webapp auth microsoft update --name "$app_name" --resource-group "$resource_group" --client-id "" --client-secret "" --tenant-id "" 2>/dev/null --api-version 2025-04-01 || echo "No Microsoft auth to remove"
 
               # Step 6: Configure CORS for testing
               echo "Step 6: Setting up CORS..."
-              az webapp cors add --name "$app_name" --resource-group "$resource_group" --allowed-origins "*" || echo "CORS already configured"
+              az webapp cors add --name "$app_name" --resource-group "$resource_group" --allowed-origins "*" --api-version 2025-04-01 || echo "CORS already configured"
 
               echo "✅ Authentication disable steps completed for $app_name"
           }
@@ -274,8 +272,8 @@ jobs:
 
           # Restart both apps to ensure settings take effect
           echo "=== Restarting apps to apply new settings ==="
-          az webapp restart --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" || echo "Failed to restart frontend app"
-          az webapp restart --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" || echo "Failed to restart admin app"
+          az webapp restart --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" --api-version 2025-04-01 || echo "Failed to restart frontend app"
+          az webapp restart --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" --api-version 2025-04-01 || echo "Failed to restart admin app"
 
           # Wait longer for changes to take effect
           echo "Waiting 150 seconds for authentication changes to propagate..."
@@ -283,16 +281,16 @@ jobs:
 
           # Verify authentication is disabled
           echo "=== Verifying authentication status ==="
-          FRONTEND_AUTH=$(az webapp auth show --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null || echo "false")
-          ADMIN_AUTH=$(az webapp auth show --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null || echo "false")
+          FRONTEND_AUTH=$(az webapp auth show --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null --api-version 2025-04-01 || echo "false")
+          ADMIN_AUTH=$(az webapp auth show --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null --api-version 2025-04-01 || echo "false")
 
           echo "Frontend Auth Enabled: $FRONTEND_AUTH"
           echo "Admin Auth Enabled: $ADMIN_AUTH"
 
           # Get detailed auth configuration for debugging
           echo "=== Detailed Authentication Configuration ==="
-          az webapp auth show --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" --query "{enabled: enabled, unauthenticatedClientAction: unauthenticatedClientAction}" || echo "Failed to get frontend auth details"
-          az webapp auth show --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" --query "{enabled: enabled, unauthenticatedClientAction: unauthenticatedClientAction}" || echo "Failed to get admin auth details"
+          az webapp auth show --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" --query "{enabled: enabled, unauthenticatedClientAction: unauthenticatedClientAction}" --api-version 2025-04-01 || echo "Failed to get frontend auth details"
+          az webapp auth show --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" --query "{enabled: enabled, unauthenticatedClientAction: unauthenticatedClientAction}" --api-version 2025-04-01 || echo "Failed to get admin auth details"
 
           if [ "$FRONTEND_AUTH" = "false" ] && [ "$ADMIN_AUTH" = "false" ]; then
               echo "✅ Authentication successfully disabled on both apps"
@@ -310,14 +308,14 @@ jobs:
                   -H "Authorization: Bearer $ACCESS_TOKEN" \
                   -H "Content-Type: application/json" \
                   -d '{"properties":{"enabled":false,"unauthenticatedClientAction":"AllowAnonymous"}}' \
-                  "https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Web/sites/$FRONTEND_APP/config/authsettings?api-version=2021-02-01" || echo "CURL call failed for frontend"
+                  "https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Web/sites/$FRONTEND_APP/config/authsettings?api-version=2025-04-01" || echo "CURL call failed for frontend"
 
               # Force disable admin auth
               curl -X PUT \
                   -H "Authorization: Bearer $ACCESS_TOKEN" \
                   -H "Content-Type: application/json" \
                   -d '{"properties":{"enabled":false,"unauthenticatedClientAction":"AllowAnonymous"}}' \
-                  "https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Web/sites/$ADMIN_APP/config/authsettings?api-version=2021-02-01" || echo "CURL call failed for admin"
+                  "https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Web/sites/$ADMIN_APP/config/authsettings?api-version=2025-04-01" || echo "CURL call failed for admin"
 
               # Final restart
               echo "Final restart after forceful disable..."
