@@ -54,6 +54,7 @@ docker-compose-up: ## 🐳 Run the docker-compose file
 	@cd docker && AZD_ENV_FILE=$(AZURE_ENV_FILE) docker-compose up
 
 azd-login: ## 🔑 Login to Azure with azd and a SPN
+azd-login: ## 🔑 Login to Azure with azd and a SPN
 	@echo -e "\e[34m$@\e[0m" || true
 	@azd auth login --client-id ${AZURE_CLIENT_ID} --client-secret ${AZURE_CLIENT_SECRET} --tenant-id ${AZURE_TENANT_ID}
 
@@ -98,7 +99,7 @@ deploy: azd-login ## Deploy everything to Azure
 
 	# Ensure we're logged in to Azure CLI and configure for no-auth testing
 	@echo "Configuring App Services for testing..."
-	@az account show >/dev/null 2>&1 || az login --service-principal -u ${AZURE_CLIENT_ID} -p ${AZURE_CLIENT_SECRET} --tenant-id ${AZURE_TENANT_ID}
+	@az account show >/dev/null 2>&1 || az login --service-principal -u ${AZURE_CLIENT_ID} -p ${AZURE_CLIENT_SECRET} --tenant ${AZURE_TENANT_ID}
 	@az account set --subscription ${AZURE_SUBSCRIPTION_ID}
 
 	# Function to completely disable authentication
@@ -108,11 +109,9 @@ deploy: azd-login ## Deploy everything to Azure
 	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
 	for app in $$FRONTEND_APP $$ADMIN_APP; do \
 		echo "=== Processing $$app ==="; \
-		echo "Step 1: Disabling platform authentication..."; \
-		az webapp auth update --name "$$app" --resource-group "$$RESOURCE_GROUP" --enabled false --api-version 2025-04-01 || echo "Failed to disable platform auth"; \
-		echo "Step 2: Setting anonymous access..."; \
-		az webapp auth update --name "$$app" --resource-group "$$RESOURCE_GROUP" --unauthenticated-client-action AllowAnonymous --api-version 2025-04-01 || echo "Failed to set anonymous access"; \
-		echo "Step 3: Setting comprehensive application settings..."; \
+		echo "Step 1: Disabling platform authentication and setting anonymous access..."; \
+		az webapp auth update --name "$$app" --resource-group "$$RESOURCE_GROUP" --enabled false --unauthenticated-client-action AllowAnonymous || echo "Failed to update auth settings"; \
+		echo "Step 2: Setting comprehensive application settings..."; \
 		az webapp config appsettings set --name "$$app" --resource-group "$$RESOURCE_GROUP" --settings \
 			"AUTH_ENABLED=false" \
 			"AZURE_USE_AUTHENTICATION=false" \
@@ -128,15 +127,11 @@ deploy: azd-login ## Deploy everything to Azure
 			"AZURE_AD_CLIENT_SECRET=" \
 			"AZURE_AD_TENANT_ID=" \
 			"AZURE_AD_INSTANCE=" \
-			"AZURE_AD_DOMAIN=" --api-version 2025-04-01 || echo "Failed to set app settings for $$app"; \
-		echo "Step 4: Force disabling via REST API..."; \
-		az rest --method PUT \
-			--url "https://management.azure.com/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/$$RESOURCE_GROUP/providers/Microsoft.Web/sites/$$app/config/authsettings?api-version=2025-04-01" \
-			--body '{"properties":{"enabled":false,"unauthenticatedClientAction":"AllowAnonymous","defaultProvider":"","clientId":"","issuer":"","allowedAudiences":[],"additionalLoginParams":[],"aadClaimsAuthorization":"","googleClientId":"","googleClientSecret":"","facebookAppId":"","facebookAppSecret":"","twitterConsumerKey":"","twitterConsumerSecret":"","microsoftAccountClientId":"","microsoftAccountClientSecret":""}}' || echo "REST call failed for $$app"; \
-		echo "Step 5: Removing authentication providers..."; \
-		az webapp auth microsoft update --name "$$app" --resource-group "$$RESOURCE_GROUP" --client-id "" --client-secret "" --tenant-id "" 2>/dev/null --api-version 2025-04-01 || echo "No Microsoft auth to remove"; \
-		echo "Step 6: Setting up CORS..."; \
-		az webapp cors add --name "$$app" --resource-group "$$RESOURCE_GROUP" --allowed-origins "*" --api-version 2025-04-01 || echo "CORS already configured"; \
+			"AZURE_AD_DOMAIN=" || echo "Failed to set app settings for $$app"; \
+		echo "Step 3: Removing authentication providers..."; \
+		az webapp auth microsoft update --name "$$app" --resource-group "$$RESOURCE_GROUP" --client-id "" --client-secret "" --tenant-id "" 2>/dev/null || echo "No Microsoft auth to remove"; \
+		echo "Step 4: Setting up CORS..."; \
+		az webapp cors add --name "$$app" --resource-group "$$RESOURCE_GROUP" --allowed-origins "*" || echo "CORS already configured"; \
 		echo "✅ Authentication disable steps completed for $$app"; \
 	done
 
@@ -145,8 +140,8 @@ deploy: azd-login ## Deploy everything to Azure
 	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
 	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
 	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
-	az webapp restart --name "$$FRONTEND_APP" --resource-group "$$RESOURCE_GROUP" --api-version 2025-04-01 || echo "Failed to restart frontend app"; \
-	az webapp restart --name "$$ADMIN_APP" --resource-group "$$RESOURCE_GROUP" --api-version 2025-04-01 || echo "Failed to restart admin app"
+	az webapp restart --name "$$FRONTEND_APP" --resource-group "$$RESOURCE_GROUP" || echo "Failed to restart frontend app"; \
+	az webapp restart --name "$$ADMIN_APP" --resource-group "$$RESOURCE_GROUP" || echo "Failed to restart admin app"
 
 	# Wait for apps to restart
 	@echo "Waiting for apps to restart..."
@@ -186,15 +181,8 @@ deploy: azd-login ## Deploy everything to Azure
 	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
 	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
 	echo "Verifying authentication status..."; \
-	FRONTEND_AUTH=$(az webapp auth show --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null --api-version 2025-04-01 || echo "false"); \
-	ADMIN_AUTH=$(az webapp auth show --name $ADMIN_APP --resource-group $RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null --api-version 2025-04-01 || echo "false"); \
-	echo "Frontend Auth Enabled: $FRONTEND_AUTH"; \
-	echo "Admin Auth Enabled: $ADMIN_AUTH"; \
-	if [ "$FRONTEND_AUTH" = "false" ] && [ "$ADMIN_AUTH" = "false" ]; then \
-		echo "✅ Authentication successfully disabled on both apps"; \
-	else \
-		echo "⚠️ Warning: Authentication may still be enabled"; \
-	fi
+	FRONTEND_AUTH=$(az webapp auth show --name $$FRONTEND_APP --resource-group $$RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false"); \
+	ADMIN_AUTH=$(az webapp auth show --name $$ADMIN_APP --resource-group $$RESOURCE_GROUP --query "enabled" --output tsv 2>/dev
 destroy: azd-login ## 🧨 Destroy everything in Azure
 	@echo -e "\e[34m$@\e[0m" || true
 	@azd down --force --purge --no-prompt
