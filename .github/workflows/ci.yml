@@ -215,107 +215,154 @@ jobs:
           echo "Frontend App: $FRONTEND_APP"
           echo "Admin App: $ADMIN_APP"
 
-          # Wait for App Services to be fully provisioned
-          echo "Waiting for App Services to be ready..."
-          az webapp show --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --query "state" --output tsv
-          az webapp show --name $ADMIN_APP --resource-group $RESOURCE_GROUP --query "state" --output tsv
+          # Function to completely disable authentication
+          disable_auth_completely() {
+              local app_name=$1
+              local resource_group=$2
 
-          # Configure application settings to disable authentication requirements
-          echo "Setting application configuration for no-auth testing..."
+              echo "=== Completely disabling authentication for $app_name ==="
 
-          # Set application settings to disable authentication
-          az webapp config appsettings set --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --settings \
-            "AUTH_ENABLED=false" \
-            "AZURE_USE_AUTHENTICATION=false" \
-            "AZURE_ENABLE_AUTH=false" \
-            "REQUIRE_AUTHENTICATION=false" \
-            "AUTHENTICATION_ENABLED=false" \
-            "AZURE_CLIENT_ID=" \
-            "AZURE_CLIENT_SECRET=" \
-            "AZURE_TENANT_ID=" \
-            "AZURE_AD_CLIENT_ID=" \
-            "AZURE_AD_CLIENT_SECRET=" \
-            "AZURE_AD_TENANT_ID=" || echo "Failed to set frontend app settings"
+              # Step 1: Disable authentication at platform level
+              echo "Step 1: Disabling platform authentication..."
+              az webapp auth update --name "$app_name" --resource-group "$resource_group" --enabled false || echo "Failed to disable platform auth"
 
-          az webapp config appsettings set --name $ADMIN_APP --resource-group $RESOURCE_GROUP --settings \
-            "AUTH_ENABLED=false" \
-            "AZURE_USE_AUTHENTICATION=false" \
-            "AZURE_ENABLE_AUTH=false" \
-            "REQUIRE_AUTHENTICATION=false" \
-            "AUTHENTICATION_ENABLED=false" \
-            "AZURE_CLIENT_ID=" \
-            "AZURE_CLIENT_SECRET=" \
-            "AZURE_TENANT_ID=" \
-            "AZURE_AD_CLIENT_ID=" \
-            "AZURE_AD_CLIENT_SECRET=" \
-            "AZURE_AD_TENANT_ID=" || echo "Failed to set admin app settings"
+              # Step 2: Set unauthenticated client action to allow anonymous
+              echo "Step 2: Setting anonymous access..."
+              az webapp auth update --name "$app_name" --resource-group "$resource_group" \
+                  --unauthenticated-client-action AllowAnonymous || echo "Failed to set anonymous access"
 
-          # Disable authentication with retry logic
-          echo "Disabling authentication on App Services..."
+              # Step 3: Set comprehensive application settings
+              echo "Step 3: Setting application settings..."
+              az webapp config appsettings set --name "$app_name" --resource-group "$resource_group" --settings \
+                  "AUTH_ENABLED=false" \
+                  "AZURE_USE_AUTHENTICATION=false" \
+                  "AZURE_ENABLE_AUTH=false" \
+                  "REQUIRE_AUTHENTICATION=false" \
+                  "AUTHENTICATION_ENABLED=false" \
+                  "WEBSITES_AUTH_ENABLED=false" \
+                  "WEBSITE_AUTH_ENABLED=false" \
+                  "AZURE_CLIENT_ID=" \
+                  "AZURE_CLIENT_SECRET=" \
+                  "AZURE_TENANT_ID=" \
+                  "AZURE_AD_CLIENT_ID=" \
+                  "AZURE_AD_CLIENT_SECRET=" \
+                  "AZURE_AD_TENANT_ID=" \
+                  "AZURE_AD_INSTANCE=" \
+                  "AZURE_AD_DOMAIN=" || echo "Failed to set app settings"
 
-          # Disable authentication on frontend app
-          for i in {1..3}; do
-            if az webapp auth update --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --enabled false; then
-              echo "✅ Successfully disabled auth on frontend app"
-              break
-            else
-              echo "⚠️ Attempt $i failed, retrying in 30 seconds..."
-              sleep 30
-            fi
-          done
+              # Step 4: Force disable using REST API
+              echo "Step 4: Force disabling via REST API..."
+              az rest --method PUT \
+                  --url "https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/$resource_group/providers/Microsoft.Web/sites/$app_name/config/authsettings?api-version=2021-02-01" \
+                  --body '{"properties":{"enabled":false,"unauthenticatedClientAction":"AllowAnonymous","defaultProvider":"","clientId":"","issuer":"","allowedAudiences":[],"additionalLoginParams":[],"aadClaimsAuthorization":"","googleClientId":"","googleClientSecret":"","facebookAppId":"","facebookAppSecret":"","twitterConsumerKey":"","twitterConsumerSecret":"","microsoftAccountClientId":"","microsoftAccountClientSecret":""}}' || echo "REST call failed for $app_name"
 
-          # Disable authentication on admin app
-          for i in {1..3}; do
-            if az webapp auth update --name $ADMIN_APP --resource-group $RESOURCE_GROUP --enabled false; then
-              echo "✅ Successfully disabled auth on admin app"
-              break
-            else
-              echo "⚠️ Attempt $i failed, retrying in 30 seconds..."
-              sleep 30
-            fi
-          done
+              # Step 5: Remove any authentication providers
+              echo "Step 5: Removing authentication providers..."
+              az webapp auth microsoft update --name "$app_name" --resource-group "$resource_group" \
+                  --client-id "" --client-secret "" --tenant-id "" 2>/dev/null || echo "No Microsoft auth to remove"
 
-          # Additional App Service configuration for testing
-          echo "Configuring App Services for testing environment..."
+              # Step 6: Configure CORS for testing
+              echo "Step 6: Setting up CORS..."
+              az webapp cors add --name "$app_name" --resource-group "$resource_group" --allowed-origins "*" || echo "CORS already configured"
 
-          # Set CORS to allow all origins for testing
-          az webapp cors add --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --allowed-origins "*" || echo "CORS already configured or failed"
-          az webapp cors add --name $ADMIN_APP --resource-group $RESOURCE_GROUP --allowed-origins "*" || echo "CORS already configured or failed"
+              echo "✅ Authentication disable steps completed for $app_name"
+          }
 
-          # Restart apps to ensure new settings take effect
-          echo "Restarting apps to apply new settings..."
-          az webapp restart --name $FRONTEND_APP --resource-group $RESOURCE_GROUP || echo "Failed to restart frontend app"
-          az webapp restart --name $ADMIN_APP --resource-group $RESOURCE_GROUP || echo "Failed to restart admin app"
+          # Apply to both apps
+          disable_auth_completely "$FRONTEND_APP" "$RESOURCE_GROUP"
+          disable_auth_completely "$ADMIN_APP" "$RESOURCE_GROUP"
 
-          # Wait for apps to restart
-          echo "Waiting for apps to restart..."
-          sleep 60
+          # Restart both apps to ensure settings take effect
+          echo "=== Restarting apps to apply new settings ==="
+          az webapp restart --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" || echo "Failed to restart frontend app"
+          az webapp restart --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" || echo "Failed to restart admin app"
+
+          # Wait longer for changes to take effect
+          echo "Waiting 150 seconds for authentication changes to propagate..."
+          sleep 150
 
           # Verify authentication is disabled
-          echo "Verifying authentication status..."
-          FRONTEND_AUTH_STATUS=$(az webapp auth show --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false")
-          ADMIN_AUTH_STATUS=$(az webapp auth show --name $ADMIN_APP --resource-group $RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false")
+          echo "=== Verifying authentication status ==="
+          FRONTEND_AUTH=$(az webapp auth show --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null || echo "false")
+          ADMIN_AUTH=$(az webapp auth show --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null || echo "false")
 
-          echo "Frontend Auth Enabled: $FRONTEND_AUTH_STATUS"
-          echo "Admin Auth Enabled: $ADMIN_AUTH_STATUS"
+          echo "Frontend Auth Enabled: $FRONTEND_AUTH"
+          echo "Admin Auth Enabled: $ADMIN_AUTH"
 
-          if [ "$FRONTEND_AUTH_STATUS" = "false" ] && [ "$ADMIN_AUTH_STATUS" = "false" ]; then
-            echo "✅ Authentication successfully disabled on both apps"
+          # Get detailed auth configuration for debugging
+          echo "=== Detailed Authentication Configuration ==="
+          az webapp auth show --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" --query "{enabled: enabled, unauthenticatedClientAction: unauthenticatedClientAction}" || echo "Failed to get frontend auth details"
+          az webapp auth show --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" --query "{enabled: enabled, unauthenticatedClientAction: unauthenticatedClientAction}" || echo "Failed to get admin auth details"
+
+          if [ "$FRONTEND_AUTH" = "false" ] && [ "$ADMIN_AUTH" = "false" ]; then
+              echo "✅ Authentication successfully disabled on both apps"
           else
-            echo "⚠️ Warning: Authentication may still be enabled on some apps"
+              echo "⚠️ Warning: Authentication may still be enabled, attempting additional fixes..."
+
+              # Additional forceful approach using ARM REST API
+              echo "Attempting forceful authentication disable via ARM API..."
+
+              # Get access token
+              ACCESS_TOKEN=$(az account get-access-token --query accessToken --output tsv)
+
+              # Force disable frontend auth
+              curl -X PUT \
+                  -H "Authorization: Bearer $ACCESS_TOKEN" \
+                  -H "Content-Type: application/json" \
+                  -d '{"properties":{"enabled":false,"unauthenticatedClientAction":"AllowAnonymous"}}' \
+                  "https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Web/sites/$FRONTEND_APP/config/authsettings?api-version=2021-02-01" || echo "CURL call failed for frontend"
+
+              # Force disable admin auth
+              curl -X PUT \
+                  -H "Authorization: Bearer $ACCESS_TOKEN" \
+                  -H "Content-Type: application/json" \
+                  -d '{"properties":{"enabled":false,"unauthenticatedClientAction":"AllowAnonymous"}}' \
+                  "https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Web/sites/$ADMIN_APP/config/authsettings?api-version=2021-02-01" || echo "CURL call failed for admin"
+
+              # Final restart
+              echo "Final restart after forceful disable..."
+              az webapp restart --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP"
+              az webapp restart --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP"
+              sleep 60
           fi
 
       - name: Verify Deployment Health
         run: |
+          echo "=== Final Deployment Health Check ==="
+
+          # Wait additional time for services to be fully ready
+          echo "Waiting additional 60 seconds for services to be ready..."
+          sleep 60
+
           # Test if the URLs are accessible
           if [ -n "${{ env.FRONTEND_WEBSITE_URL }}" ]; then
             echo "Testing frontend accessibility..."
-            curl -f -s -o /dev/null "${{ env.FRONTEND_WEBSITE_URL }}" && echo "✅ Frontend is accessible" || echo "❌ Frontend is not accessible"
+            for i in {1..5}; do
+              if curl -f -s -L --max-time 30 "${{ env.FRONTEND_WEBSITE_URL }}" > /dev/null; then
+                echo "✅ Frontend is accessible (attempt $i)"
+                break
+              else
+                echo "❌ Frontend not accessible (attempt $i), retrying in 30 seconds..."
+                sleep 30
+              fi
+            done
+          else
+            echo "❌ Frontend URL not available for testing"
           fi
 
           if [ -n "${{ env.ADMIN_WEBSITE_URL }}" ]; then
             echo "Testing admin accessibility..."
-            curl -f -s -o /dev/null "${{ env.ADMIN_WEBSITE_URL }}" && echo "✅ Admin is accessible" || echo "❌ Admin is not accessible"
+            for i in {1..5}; do
+              if curl -f -s -L --max-time 30 "${{ env.ADMIN_WEBSITE_URL }}" > /dev/null; then
+                echo "✅ Admin is accessible (attempt $i)"
+                break
+              else
+                echo "❌ Admin not accessible (attempt $i), retrying in 30 seconds..."
+                sleep 30
+              fi
+            done
+          else
+            echo "❌ Admin URL not available for testing"
           fi
 
   cleanup:

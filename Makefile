@@ -68,6 +68,8 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@azd env set AZURE_ENABLE_AUTH false --no-prompt
 	@azd env set REQUIRE_AUTHENTICATION false --no-prompt
 	@azd env set AUTHENTICATION_ENABLED false --no-prompt
+	@azd env set WEBSITES_AUTH_ENABLED false --no-prompt
+	@azd env set WEBSITE_AUTH_ENABLED false --no-prompt
 
 	# Provision infrastructure with explicit no-auth configuration
 	@echo "Provisioning Azure resources without authentication..."
@@ -90,56 +92,60 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
 	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
 	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
-	echo "Resource Group: $RESOURCE_GROUP"; \
-	echo "Frontend App: $FRONTEND_APP"; \
-	echo "Admin App: $ADMIN_APP"
+	echo "Resource Group: $$RESOURCE_GROUP"; \
+	echo "Frontend App: $$FRONTEND_APP"; \
+	echo "Admin App: $$ADMIN_APP"
 
 	# Ensure we're logged in to Azure CLI and configure for no-auth testing
 	@echo "Configuring App Services for testing..."
 	@az account show >/dev/null 2>&1 || az login --service-principal -u ${AZURE_CLIENT_ID} -p ${AZURE_CLIENT_SECRET} --tenant-id ${AZURE_TENANT_ID}
 	@az account set --subscription ${AZURE_SUBSCRIPTION_ID}
 
-	# Configure application settings to disable authentication requirements
+	# Function to completely disable authentication
+	@echo "=== Completely disabling authentication on both apps ==="
 	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
 	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
 	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
-	echo "Setting application configuration for no-auth testing..."; \
-	az webapp config appsettings set --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --settings \
-		"AUTH_ENABLED=false" \
-		"AZURE_USE_AUTHENTICATION=false" \
-		"AZURE_ENABLE_AUTH=false" \
-		"REQUIRE_AUTHENTICATION=false" \
-		"AUTHENTICATION_ENABLED=false" \
-		"AZURE_CLIENT_ID=" \
-		"AZURE_CLIENT_SECRET=" \
-		"AZURE_TENANT_ID=" \
-		"AZURE_AD_CLIENT_ID=" \
-		"AZURE_AD_CLIENT_SECRET=" \
-		"AZURE_AD_TENANT_ID=" || echo "Failed to set frontend app settings"; \
-	az webapp config appsettings set --name $ADMIN_APP --resource-group $RESOURCE_GROUP --settings \
-		"AUTH_ENABLED=false" \
-		"AZURE_USE_AUTHENTICATION=false" \
-		"AZURE_ENABLE_AUTH=false" \
-		"REQUIRE_AUTHENTICATION=false" \
-		"AUTHENTICATION_ENABLED=false" \
-		"AZURE_CLIENT_ID=" \
-		"AZURE_CLIENT_SECRET=" \
-		"AZURE_TENANT_ID=" \
-		"AZURE_AD_CLIENT_ID=" \
-		"AZURE_AD_CLIENT_SECRET=" \
-		"AZURE_AD_TENANT_ID=" || echo "Failed to set admin app settings"
+	for app in $$FRONTEND_APP $$ADMIN_APP; do \
+		echo "=== Processing $$app ==="; \
+		echo "Step 1: Disabling platform authentication..."; \
+		az webapp auth update --name "$$app" --resource-group "$$RESOURCE_GROUP" --enabled false || echo "Failed to disable platform auth"; \
+		echo "Step 2: Setting anonymous access..."; \
+		az webapp auth update --name "$$app" --resource-group "$$RESOURCE_GROUP" --unauthenticated-client-action AllowAnonymous || echo "Failed to set anonymous access"; \
+		echo "Step 3: Setting comprehensive application settings..."; \
+		az webapp config appsettings set --name "$$app" --resource-group "$$RESOURCE_GROUP" --settings \
+			"AUTH_ENABLED=false" \
+			"AZURE_USE_AUTHENTICATION=false" \
+			"AZURE_ENABLE_AUTH=false" \
+			"REQUIRE_AUTHENTICATION=false" \
+			"AUTHENTICATION_ENABLED=false" \
+			"WEBSITES_AUTH_ENABLED=false" \
+			"WEBSITE_AUTH_ENABLED=false" \
+			"AZURE_CLIENT_ID=" \
+			"AZURE_CLIENT_SECRET=" \
+			"AZURE_TENANT_ID=" \
+			"AZURE_AD_CLIENT_ID=" \
+			"AZURE_AD_CLIENT_SECRET=" \
+			"AZURE_AD_TENANT_ID=" \
+			"AZURE_AD_INSTANCE=" \
+			"AZURE_AD_DOMAIN=" || echo "Failed to set app settings for $$app"; \
+		echo "Step 4: Force disabling via REST API..."; \
+		az rest --method PUT \
+			--url "https://management.azure.com/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/$$RESOURCE_GROUP/providers/Microsoft.Web/sites/$$app/config/authsettings?api-version=2021-02-01" \
+			--body '{"properties":{"enabled":false,"unauthenticatedClientAction":"AllowAnonymous","defaultProvider":"","clientId":"","issuer":"","allowedAudiences":[],"additionalLoginParams":[],"aadClaimsAuthorization":"","googleClientId":"","googleClientSecret":"","facebookAppId":"","facebookAppSecret":"","twitterConsumerKey":"","twitterConsumerSecret":"","microsoftAccountClientId":"","microsoftAccountClientSecret":""}}' || echo "REST call failed for $$app"; \
+		echo "Step 5: Removing authentication providers..."; \
+		az webapp auth microsoft update --name "$$app" --resource-group "$$RESOURCE_GROUP" --client-id "" --client-secret "" --tenant-id "" 2>/dev/null || echo "No Microsoft auth to remove"; \
+		echo "Step 6: Setting up CORS..."; \
+		az webapp cors add --name "$$app" --resource-group "$$RESOURCE_GROUP" --allowed-origins "*" || echo "CORS already configured"; \
+		echo "✅ Authentication disable steps completed for $$app"; \
+	done
 
-	# Disable authentication with comprehensive approach
+	# Restart apps to ensure new settings take effect
+	@echo "=== Restarting apps to apply new settings ==="
 	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
 	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
 	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
-	echo "Disabling authentication on $FRONTEND_APP..."; \
-	az webapp auth update --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --enabled false || echo "Failed to disable auth on frontend"; \
-	echo "Disabling authentication on $ADMIN_APP..."; \
-	az webapp auth update --name $ADMIN_APP --resource-group $RESOURCE_GROUP --enabled false || echo "Failed to disable auth on admin"; \
-	echo "Setting up CORS for testing..."; \
-	az webapp cors add --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --allowed-origins "*" || echo "CORS setup failed for frontend"; \
-	az webapp cors add --name $ADMIN_APP --resource-group $RESOURCE_GROUP --allowed-origins "*" || echo "CORS setup failed for admin"
+	az webapp restart --name "$$FRONTEND_APP"
 
 	# Restart apps to ensure new settings take effect
 	@echo "Restarting apps to apply new settings..."
