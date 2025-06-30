@@ -182,7 +182,15 @@ deploy: azd-login ## Deploy everything to Azure
 	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
 	echo "Verifying authentication status..."; \
 	FRONTEND_AUTH=$(az webapp auth show --name $$FRONTEND_APP --resource-group $$RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false"); \
-	ADMIN_AUTH=$(az webapp auth show --name $$ADMIN_APP --resource-group $$RESOURCE_GROUP --query "enabled" --output tsv 2>/dev
+	ADMIN_AUTH=$(az webapp auth show --name $$ADMIN_APP --resource-group $$RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false"); \
+	echo "Frontend Auth Enabled: $FRONTEND_AUTH"; \
+	echo "Admin Auth Enabled: $ADMIN_AUTH"; \
+	if [ "$FRONTEND_AUTH" = "false" ] && [ "$ADMIN_AUTH" = "false" ]; then \
+		echo "✅ Authentication successfully disabled on both apps"; \
+	else \
+		echo "⚠️ Warning: Authentication may still be enabled"; \
+	fi
+
 destroy: azd-login ## 🧨 Destroy everything in Azure
 	@echo -e "\e[34m$@\e[0m" || true
 	@azd down --force --purge --no-prompt

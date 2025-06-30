@@ -202,92 +202,92 @@ jobs:
 
       - name: Configure App Services for Testing
         run: |
-          # Login to Azure CLI
-          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
-          az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+                # Login to Azure CLI
+                az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+                az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-          # Get resource group and app names from azd environment
-          RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"')
-          FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"')
-          ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"')
+                # Get resource group and app names from azd environment
+                RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"')
+                FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"')
+                ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"')
 
-          echo "Resource Group: $RESOURCE_GROUP"
-          echo "Frontend App: $FRONTEND_APP"
-          echo "Admin App: $ADMIN_APP"
+                echo "Resource Group: $RESOURCE_GROUP"
+                echo "Frontend App: $FRONTEND_APP"
+                echo "Admin App: $ADMIN_APP"
 
-          # Function to completely disable authentication
-          disable_auth_completely() {
-              local app_name=$1
-              local resource_group=$2
+                # Function to completely disable authentication
+                disable_auth_completely() {
+                    local app_name=$1
+                    local resource_group=$2
 
-              echo "=== Completely disabling authentication for $app_name ==="
+                    echo "=== Completely disabling authentication for $app_name ==="
 
-              # Step 1: Disable authentication at platform level and allow anonymous access
-              echo "Step 1: Disabling platform authentication and setting anonymous access..."
-              az webapp auth update --name "$app_name" --resource-group "$resource_group" --enabled false --unauthenticated-client-action AllowAnonymous || echo "Failed to update auth settings"
+                    # Step 1: Disable authentication at platform level and allow anonymous access
+                    echo "Step 1: Disabling platform authentication and setting anonymous access..."
+                    az webapp auth update --name "$app_name" --resource-group "$resource_group" --enabled false --unauthenticated-client-action AllowAnonymous || echo "Failed to update auth settings"
 
-              # Step 2: Set comprehensive application settings
-              echo "Step 2: Setting application settings..."
-              az webapp config appsettings set --name "$app_name" --resource-group "$resource_group" --settings \
-                  "AUTH_ENABLED=false" \
-                  "AZURE_USE_AUTHENTICATION=false" \
-                  "AZURE_ENABLE_AUTH=false" \
-                  "REQUIRE_AUTHENTICATION=false" \
-                  "AUTHENTICATION_ENABLED=false" \
-                  "WEBSITES_AUTH_ENABLED=false" \
-                  "WEBSITE_AUTH_ENABLED=false" \
-                  "AZURE_CLIENT_ID=" \
-                  "AZURE_CLIENT_SECRET=" \
-                  "AZURE_TENANT_ID=" \
-                  "AZURE_AD_CLIENT_ID=" \
-                  "AZURE_AD_CLIENT_SECRET=" \
-                  "AZURE_AD_TENANT_ID=" \
-                  "AZURE_AD_INSTANCE=" \
-                  "AZURE_AD_DOMAIN=" || echo "Failed to set app settings"
+                    # Step 2: Set comprehensive application settings
+                    echo "Step 2: Setting application settings..."
+                    az webapp config appsettings set --name "$app_name" --resource-group "$resource_group" --settings \
+                        "AUTH_ENABLED=false" \
+                        "AZURE_USE_AUTHENTICATION=false" \
+                        "AZURE_ENABLE_AUTH=false" \
+                        "REQUIRE_AUTHENTICATION=false" \
+                        "AUTHENTICATION_ENABLED=false" \
+                        "WEBSITES_AUTH_ENABLED=false" \
+                        "WEBSITE_AUTH_ENABLED=false" \
+                        "AZURE_CLIENT_ID=" \
+                        "AZURE_CLIENT_SECRET=" \
+                        "AZURE_TENANT_ID=" \
+                        "AZURE_AD_CLIENT_ID=" \
+                        "AZURE_AD_CLIENT_SECRET=" \
+                        "AZURE_AD_TENANT_ID=" \
+                        "AZURE_AD_INSTANCE=" \
+                        "AZURE_AD_DOMAIN=" || echo "Failed to set app settings"
 
-              # Step 3: Remove any authentication providers
-              echo "Step 3: Removing authentication providers..."
-              az webapp auth microsoft update --name "$app_name" --resource-group "$resource_group" --client-id "" --client-secret "" --tenant-id "" 2>/dev/null || echo "No Microsoft auth to remove"
+                    # Step 3: Remove any authentication providers
+                    echo "Step 3: Removing authentication providers..."
+                    az webapp auth microsoft update --name "$app_name" --resource-group "$resource_group" --client-id "" --client-secret "" --tenant-id "" 2>/dev/null || echo "No Microsoft auth to remove"
 
-              # Step 4: Configure CORS for testing
-              echo "Step 4: Setting up CORS..."
-              az webapp cors add --name "$app_name" --resource-group "$resource_group" --allowed-origins "*" || echo "CORS already configured"
+                    # Step 4: Configure CORS for testing
+                    echo "Step 4: Setting up CORS..."
+                    az webapp cors add --name "$app_name" --resource-group "$resource_group" --allowed-origins "*" || echo "CORS already configured"
 
-              echo "✅ Authentication disable steps completed for $app_name"
-          }
+                    echo "✅ Authentication disable steps completed for $app_name"
+                }
 
-          # Apply to both apps
-          disable_auth_completely "$FRONTEND_APP" "$RESOURCE_GROUP"
-          disable_auth_completely "$ADMIN_APP" "$RESOURCE_GROUP"
+                # Apply to both apps
+                disable_auth_completely "$FRONTEND_APP" "$RESOURCE_GROUP"
+                disable_auth_completely "$ADMIN_APP" "$RESOURCE_GROUP"
 
-          # Restart both apps to ensure settings take effect
-          echo "=== Restarting apps to apply new settings ==="
-          az webapp restart --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" || echo "Failed to restart frontend app"
-          az webapp restart --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" || echo "Failed to restart admin app"
+                # Restart both apps to ensure settings take effect
+                echo "=== Restarting apps to apply new settings ==="
+                az webapp restart --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" || echo "Failed to restart frontend app"
+                az webapp restart --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" || echo "Failed to restart admin app"
 
-          # Wait longer for changes to take effect
-          echo "Waiting 150 seconds for authentication changes to propagate..."
-          sleep 150
+                # Wait longer for changes to take effect
+                echo "Waiting 150 seconds for authentication changes to propagate..."
+                sleep 150
 
-          # Verify authentication is disabled
-          echo "=== Verifying authentication status ==="
-          FRONTEND_AUTH=$(az webapp auth show --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null || echo "false")
-          ADMIN_AUTH=$(az webapp auth show --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null || echo "false")
+                # Verify authentication is disabled
+                echo "=== Verifying authentication status ==="
+                FRONTEND_AUTH=$(az webapp auth show --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null || echo "false")
+                ADMIN_AUTH=$(az webapp auth show --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null || echo "false")
 
-          echo "Frontend Auth Enabled: $FRONTEND_AUTH"
-          echo "Admin Auth Enabled: $ADMIN_AUTH"
+                echo "Frontend Auth Enabled: $FRONTEND_AUTH"
+                echo "Admin Auth Enabled: $ADMIN_AUTH"
 
-          # Get detailed auth configuration for debugging
-          echo "=== Detailed Authentication Configuration ==="
-          az webapp auth show --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" --query "{enabled: enabled, unauthenticatedClientAction: unauthenticatedClientAction}" || echo "Failed to get frontend auth details"
-          az webapp auth show --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" --query "{enabled: enabled, unauthenticatedClientAction: unauthenticatedClientAction}" || echo "Failed to get admin auth details"
+                # Get detailed auth configuration for debugging
+                echo "=== Detailed Authentication Configuration ==="
+                az webapp auth show --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" --query "{enabled: enabled, unauthenticatedClientAction: unauthenticatedClientAction}" || echo "Failed to get frontend auth details"
+                az webapp auth show --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" --query "{enabled: enabled, unauthenticatedClientAction: unauthenticatedClientAction}" || echo "Failed to get admin auth details"
 
-          if [ "$FRONTEND_AUTH" = "false" ] && [ "$ADMIN_AUTH" = "false" ]; then
-              echo "✅ Authentication successfully disabled on both apps"
-          else
-              echo "⚠️ Warning: Authentication may still be enabled"
-              exit 1
-          fi
+                if [ "$FRONTEND_AUTH" = "false" ] && [ "$ADMIN_AUTH" = "false" ]; then
+                    echo "✅ Authentication successfully disabled on both apps"
+                else
+                    echo "⚠️ Warning: Authentication may still be enabled"
+                    exit 1
+                fi
 
       - name: Verify Deployment Health
         run: |
