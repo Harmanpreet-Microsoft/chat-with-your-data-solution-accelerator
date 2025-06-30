@@ -54,7 +54,6 @@ docker-compose-up: ## 🐳 Run the docker-compose file
 	@cd docker && AZD_ENV_FILE=$(AZURE_ENV_FILE) docker-compose up
 
 azd-login: ## 🔑 Login to Azure with azd and a SPN
-azd-login: ## 🔑 Login to Azure with azd and a SPN
 	@echo -e "\e[34m$@\e[0m" || true
 	@azd auth login --client-id ${AZURE_CLIENT_ID} --client-secret ${AZURE_CLIENT_SECRET} --tenant-id ${AZURE_TENANT_ID}
 
@@ -90,9 +89,13 @@ deploy: azd-login ## Deploy everything to Azure
 
 	# Get resource information
 	@echo "Getting deployment information..."
-	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
-	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
-	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"' || echo ""); \
+	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"' || echo ""); \
+	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"' || echo ""); \
+	if [ -z "$$RESOURCE_GROUP" ] || [ -z "$$FRONTEND_APP" ] || [ -z "$$ADMIN_APP" ]; then \
+		echo "❌ Failed to retrieve resource group or app names. Check azd configuration."; \
+		exit 1; \
+	fi; \
 	echo "Resource Group: $$RESOURCE_GROUP"; \
 	echo "Frontend App: $$FRONTEND_APP"; \
 	echo "Admin App: $$ADMIN_APP"
@@ -104,9 +107,9 @@ deploy: azd-login ## Deploy everything to Azure
 
 	# Function to completely disable authentication
 	@echo "=== Completely disabling authentication on both apps ==="
-	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
-	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
-	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"' || echo ""); \
+	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"' || echo ""); \
+	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"' || echo ""); \
 	for app in $$FRONTEND_APP $$ADMIN_APP; do \
 		echo "=== Processing $$app ==="; \
 		echo "Step 1: Disabling platform authentication and setting anonymous access..."; \
@@ -137,15 +140,15 @@ deploy: azd-login ## Deploy everything to Azure
 
 	# Restart apps to ensure new settings take effect
 	@echo "=== Restarting apps to apply new settings ==="
-	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
-	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
-	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"' || echo ""); \
+	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"' || echo ""); \
+	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"' || echo ""); \
 	az webapp restart --name "$$FRONTEND_APP" --resource-group "$$RESOURCE_GROUP" || echo "Failed to restart frontend app"; \
 	az webapp restart --name "$$ADMIN_APP" --resource-group "$$RESOURCE_GROUP" || echo "Failed to restart admin app"
 
 	# Wait for apps to restart
-	@echo "Waiting for apps to restart..."
-	@sleep 60
+	@echo "Waiting 180 seconds for apps to restart..."
+	@sleep 180
 
 	# Get the JSON output and extract URLs directly
 	@echo "Extracting deployment URLs..."
@@ -177,18 +180,19 @@ deploy: azd-login ## Deploy everything to Azure
 	@echo "Admin URL:" && cat admin_url.txt
 
 	# Verify authentication status
-	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"'); \
-	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
-	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"'); \
+	@RESOURCE_GROUP=$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"' || echo ""); \
+	FRONTEND_APP=$(azd env get-values | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"' || echo ""); \
+	ADMIN_APP=$(azd env get-values | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"' || echo ""); \
 	echo "Verifying authentication status..."; \
-	FRONTEND_AUTH=$(az webapp auth show --name $$FRONTEND_APP --resource-group $$RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false"); \
-	ADMIN_AUTH=$(az webapp auth show --name $$ADMIN_APP --resource-group $$RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false"); \
-	echo "Frontend Auth Enabled: $FRONTEND_AUTH"; \
-	echo "Admin Auth Enabled: $ADMIN_AUTH"; \
-	if [ "$FRONTEND_AUTH" = "false" ] && [ "$ADMIN_AUTH" = "false" ]; then \
+	FRONTEND_AUTH=$$(az webapp auth show --name $$FRONTEND_APP --resource-group $$RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false"); \
+	ADMIN_AUTH=$$(az webapp auth show --name $$ADMIN_APP --resource-group $$RESOURCE_GROUP --query "enabled" --output tsv 2>/dev/null || echo "false"); \
+	echo "Frontend Auth Enabled: $$FRONTEND_AUTH"; \
+	echo "Admin Auth Enabled: $$ADMIN_AUTH"; \
+	if [ "$$FRONTEND_AUTH" = "false" ] && [ "$$ADMIN_AUTH" = "false" ]; then \
 		echo "✅ Authentication successfully disabled on both apps"; \
 	else \
 		echo "⚠️ Warning: Authentication may still be enabled"; \
+		exit 1; \
 	fi
 
 destroy: azd-login ## 🧨 Destroy everything in Azure
