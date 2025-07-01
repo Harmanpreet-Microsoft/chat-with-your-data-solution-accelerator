@@ -293,45 +293,102 @@ jobs:
               echo "⚠️ Warning: Authentication may still be enabled"
               exit 1
           fi
+      - name: Fallback Authentication Disable
+    if: steps.extract-urls.outputs.resource_group == '' || steps.extract-urls.outputs.frontend_app == '' || steps.extract-urls.outputs.admin_app == ''
+    run: |
+      echo "=== Fallback: Attempting to disable authentication using URL patterns ==="
 
-      - name: Verify Deployment Health
-        run: |
-          echo "=== Final Deployment Health Check ==="
+      # Login to Azure CLI
+      az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+      az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-          # Wait additional time for services to be fully ready
-          echo "Waiting additional 60 seconds for services to be ready..."
-          sleep 60
+      # Extract app names from URLs
+      if [ -n "${{ env.FRONTEND_WEBSITE_URL }}" ]; then
+        FRONTEND_APP=$(echo "${{ env.FRONTEND_WEBSITE_URL }}" | sed 's|https://||' | sed 's|\.azurewebsites\.net/.*||')
+        echo "Extracted Frontend App Name: $FRONTEND_APP"
+      fi
 
-          # Test if the URLs are accessible
-          if [ -n "${{ env.FRONTEND_WEBSITE_URL }}" ]; then
-            echo "Testing frontend accessibility..."
-            for i in {1..5}; do
-              if curl -f -s -L --max-time 30 "${{ env.FRONTEND_WEBSITE_URL }}" > /dev/null; then
-                echo "✅ Frontend is accessible (attempt $i)"
-                break
-              else
-                echo "❌ Frontend not accessible (attempt $i), retrying in 30 seconds..."
-                sleep 30
-              fi
-            done
-          else
-            echo "❌ Frontend URL not available for testing"
+      if [ -n "${{ env.ADMIN_WEBSITE_URL }}" ]; then
+        ADMIN_APP=$(echo "${{ env.ADMIN_WEBSITE_URL }}" | sed 's|https://||' | sed 's|\.azurewebsites\.net/.*||')
+        echo "Extracted Admin App Name: $ADMIN_APP"
+      fi
+
+      # Try to find resource group by searching for the apps
+      if [ -n "$FRONTEND_APP" ]; then
+        echo "Searching for resource group containing $FRONTEND_APP..."
+        RESOURCE_GROUP=$(az webapp list --query "[?name=='$FRONTEND_APP'].resourceGroup | [0]" -o tsv)
+        if [ -n "$RESOURCE_GROUP" ] && [ "$RESOURCE_GROUP" != "null" ]; then
+          echo "Found resource group: $RESOURCE_GROUP"
+        fi
+      fi
+
+      # If not found with frontend app, try with admin app
+      if [ -z "$RESOURCE_GROUP" ] || [ "$RESOURCE_GROUP" == "null" ]; then
+        if [ -n "$ADMIN_APP" ]; then
+          echo "Searching for resource group containing $ADMIN_APP..."
+          RESOURCE_GROUP=$(az webapp list --query "[?name=='$ADMIN_APP'].resourceGroup | [0]" -o tsv)
+          if [ -n "$RESOURCE_GROUP" ] && [ "$RESOURCE_GROUP" != "null" ]; then
+            echo "Found resource group: $RESOURCE_GROUP"
           fi
+        fi
+      fi
 
-          if [ -n "${{ env.ADMIN_WEBSITE_URL }}" ]; then
-            echo "Testing admin accessibility..."
-            for i in {1..5}; do
-              if curl -f -s -L --max-time 30 "${{ env.ADMIN_WEBSITE_URL }}" > /dev/null; then
-                echo "✅ Admin is accessible (attempt $i)"
-                break
-              else
-                echo "❌ Admin not accessible (attempt $i), retrying in 30 seconds..."
-                sleep 30
-              fi
-            done
-          else
-            echo "❌ Admin URL not available for testing"
-          fi
+      # Disable authentication for frontend app if found
+      if [ -n "$FRONTEND_APP" ] && [ -n "$RESOURCE_GROUP" ] && [ "$RESOURCE_GROUP" != "null" ]; then
+        echo "Disabling authentication for frontend app: $FRONTEND_APP"
+        az webapp auth update --name $FRONTEND_APP --resource-group $RESOURCE_GROUP --enabled false || echo "Failed to disable auth for frontend app"
+      else
+        echo "Could not disable authentication for frontend app - missing app name or resource group"
+      fi
+
+      # Disable authentication for admin app if found
+      if [ -n "$ADMIN_APP" ] && [ -n "$RESOURCE_GROUP" ] && [ "$RESOURCE_GROUP" != "null" ]; then
+        echo "Disabling authentication for admin app: $ADMIN_APP"
+        az webapp auth update --name $ADMIN_APP --resource-group $RESOURCE_GROUP --enabled false || echo "Failed to disable auth for admin app"
+      else
+        echo "Could not disable authentication for admin app - missing app name or resource group"
+      fi
+
+      echo "Fallback authentication disable process completed"
+
+        - name: Verify Deployment Health
+          run: |
+            echo "=== Final Deployment Health Check ==="
+
+            # Wait additional time for services to be fully ready
+            echo "Waiting additional 60 seconds for services to be ready..."
+            sleep 60
+
+            # Test if the URLs are accessible
+            if [ -n "${{ env.FRONTEND_WEBSITE_URL }}" ]; then
+              echo "Testing frontend accessibility..."
+              for i in {1..5}; do
+                if curl -f -s -L --max-time 30 "${{ env.FRONTEND_WEBSITE_URL }}" > /dev/null; then
+                  echo "✅ Frontend is accessible (attempt $i)"
+                  break
+                else
+                  echo "❌ Frontend not accessible (attempt $i), retrying in 30 seconds..."
+                  sleep 30
+                fi
+              done
+            else
+              echo "❌ Frontend URL not available for testing"
+            fi
+
+            if [ -n "${{ env.ADMIN_WEBSITE_URL }}" ]; then
+              echo "Testing admin accessibility..."
+              for i in {1..5}; do
+                if curl -f -s -L --max-time 30 "${{ env.ADMIN_WEBSITE_URL }}" > /dev/null; then
+                  echo "✅ Admin is accessible (attempt $i)"
+                  break
+                else
+                  echo "❌ Admin not accessible (attempt $i), retrying in 30 seconds..."
+                  sleep 30
+                fi
+              done
+            else
+              echo "❌ Admin URL not available for testing"
+            fi
 
 
   cleanup:
