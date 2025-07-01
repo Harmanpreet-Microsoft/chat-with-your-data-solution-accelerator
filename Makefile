@@ -114,7 +114,7 @@ deploy: azd-login ## Deploy everything to Azure
 	# Get resource information with better error handling
 	@echo "Getting resource group and app names..."
 	@RESOURCE_GROUP=$$(azd env get-values 2>/dev/null | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '"' || echo ""); \
-	FRONTEND_APP=$$(azd env get-values 2>/dev/null | grep FRONTEND_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"' || echo ""); \
+	FRONTEND_APP_HOST=$$(echo $$FRONTEND_APP | sed 's|https://||;s|\.azurewebsites\.net.*||')
 	ADMIN_APP=$$(azd env get-values 2>/dev/null | grep ADMIN_WEBSITE_NAME | cut -d'=' -f2 | tr -d '"' || echo ""); \
 	echo "Resource Group: $$RESOURCE_GROUP"; \
 	echo "Frontend App: $$FRONTEND_APP"; \
@@ -130,14 +130,17 @@ deploy: azd-login ## Deploy everything to Azure
 
 	# Read the stored values
 	@RESOURCE_GROUP=$$(cat resource_group.txt 2>/dev/null || echo ""); \
-	FRONTEND_APP=$$(cat frontend_app.txt 2>/dev/null || echo ""); \
-	ADMIN_APP=$$(cat admin_app.txt 2>/dev/null || echo ""); \
+	FRONTEND_APP_URL=$$(cat frontend_url.txt 2>/dev/null || echo ""); \
+	ADMIN_APP_URL=$$(cat admin_url.txt 2>/dev/null || echo ""); \
+	FRONTEND_APP=$$(echo $$FRONTEND_APP_URL | sed 's|https://||;s|\.azurewebsites\.net.*||'); \
+	ADMIN_APP=$$(echo $$ADMIN_APP_URL | sed 's|https://||;s|\.azurewebsites\.net.*||'); \
+
 	if [ -n "$$RESOURCE_GROUP" ] && [ -n "$$FRONTEND_APP" ] && [ -n "$$ADMIN_APP" ]; then \
 		echo "=== Completely disabling authentication on both apps ==="; \
 		for app in $$FRONTEND_APP $$ADMIN_APP; do \
 			echo "=== Processing $$app ==="; \
 			echo "Step 1: Disabling platform authentication and setting anonymous access..."; \
-			az webapp auth update --name "$$app" --resource-group "$$RESOURCE_GROUP" --enabled false --unauthenticated-client-action AllowAnonymous || echo "Failed to update auth settings"; \
+			az webapp auth update --name "$$FRONTEND_APP" --resource-group "$$RESOURCE_GROUP" --action AllowAnonymous
 			echo "Step 2: Setting comprehensive application settings..."; \
 			az webapp config appsettings set --name "$$app" --resource-group "$$RESOURCE_GROUP" --settings \
 				"AUTH_ENABLED=false" \
