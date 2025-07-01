@@ -91,6 +91,22 @@ deploy: azd-login ## Deploy everything to Azure
 	@RESOURCE_GROUP=$$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2); \
 	FRONTEND_APP=$$(cat frontend_url.txt | sed 's|https://||;s|\.azurewebsites\.net.*||'); \
 	ADMIN_APP=$$(cat admin_url.txt | sed 's|https://||;s|\.azurewebsites\.net.*||'); \
+	@echo "Extracting app names from URLs..."\
+	@for i in {1..5}; do \
+		FRONTEND_APP=$$(cat frontend_url.txt | sed 's|https://||;s|\.azurewebsites\.net.*||'); \
+		ADMIN_APP=$$(cat admin_url.txt | sed 's|https://||;s|\.azurewebsites\.net.*||'); \
+		RESOURCE_GROUP=$$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2); \
+		if [ -n "$$FRONTEND_APP" ] && [ -n "$$ADMIN_APP" ] && [ -n "$$RESOURCE_GROUP" ]; then \
+			echo "$$RESOURCE_GROUP" > resource_group.txt; \
+			echo "$$FRONTEND_APP" > frontend_app.txt; \
+			echo "$$ADMIN_APP" > admin_app.txt; \
+			break; \
+		else \
+			echo "Retrying app/resource name extraction ($$i/5)..."; \
+			sleep 10; \
+		fi; \
+	done
+
 	echo "Resource Group: $$RESOURCE_GROUP"; \
 	echo "Frontend App: $$FRONTEND_APP"; \
 	echo "Admin App: $$ADMIN_APP"; \

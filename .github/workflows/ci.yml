@@ -205,9 +205,24 @@ jobs:
           az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
           az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-          RESOURCE_GROUP=$(cat resource_group.txt 2>/dev/null || echo "")
-          FRONTEND_APP=$(cat frontend_app.txt 2>/dev/null || echo "")
-          ADMIN_APP=$(cat admin_app.txt 2>/dev/null || echo "")
+          # Retry resource name extraction up to 5 times
+          for i in {1..5}; do
+            RESOURCE_GROUP=$(cat resource_group.txt 2>/dev/null || echo "")
+            FRONTEND_APP=$(cat frontend_app.txt 2>/dev/null || echo "")
+            ADMIN_APP=$(cat admin_app.txt 2>/dev/null || echo "")
+            if [ -n "$RESOURCE_GROUP" ] && [ -n "$FRONTEND_APP" ] && [ -n "$ADMIN_APP" ]; then
+              break
+            else
+              echo "⚠️ Attempt $i/5: Missing app or resource group. Retrying in 10 seconds..."
+              sleep 10
+            fi
+          done
+
+          if [ -z "$RESOURCE_GROUP" ] || [ -z "$FRONTEND_APP" ] || [ -z "$ADMIN_APP" ]; then
+            echo "❌ Still missing app/resource group after retries"
+            exit 1
+          fi
+
 
           if [ -z "$RESOURCE_GROUP" ] || [ -z "$FRONTEND_APP" ] || [ -z "$ADMIN_APP" ]; then
             echo "❌ Missing app name or resource group"
