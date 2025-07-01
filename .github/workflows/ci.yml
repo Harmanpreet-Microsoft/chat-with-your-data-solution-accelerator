@@ -202,11 +202,9 @@ jobs:
 
       - name: Configure App Services for Testing
         run: |
-          # Login to Azure CLI
           az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
           az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-          # Read values written by the Makefile deploy step
           RESOURCE_GROUP=$(cat resource_group.txt 2>/dev/null || echo "")
           FRONTEND_APP=$(cat frontend_app.txt 2>/dev/null || echo "")
           ADMIN_APP=$(cat admin_app.txt 2>/dev/null || echo "")
@@ -216,17 +214,14 @@ jobs:
             exit 1
           fi
 
-          echo "Resource Group: $RESOURCE_GROUP"
-          echo "Frontend App: $FRONTEND_APP"
-          echo "Admin App: $ADMIN_APP"
-
           disable_auth_completely() {
               local app_name=$1
-              local resource_group=$2
               echo "=== Disabling auth for $app_name ==="
-
-              az webapp auth update --name "$app_name" --resource-group "$resource_group" --enabled false --unauthenticated-client-action AllowAnonymous || echo "Failed auth update"
-              az webapp config appsettings set --name "$app_name" --resource-group "$resource_group" --settings \
+              for attempt in {1..3}; do
+                az webapp auth update --name "$app_name" --resource-group "$RESOURCE_GROUP" --enabled false && break || echo "Retry auth update ($attempt)" && sleep 30
+              done
+              az webapp config set --name "$app_name" --resource-group "$RESOURCE_GROUP" --generic-configurations '{"unauthenticatedClientAction":"AllowAnonymous"}' || echo "Failed setting unauthenticated action"
+              az webapp config appsettings set --name "$app_name" --resource-group "$RESOURCE_GROUP" --settings \
                   "AUTH_ENABLED=false" \
                   "AZURE_USE_AUTHENTICATION=false" \
                   "AZURE_ENABLE_AUTH=false" \
@@ -236,38 +231,35 @@ jobs:
                   "WEBSITE_AUTH_ENABLED=false" \
                   "AZURE_CLIENT_ID=" \
                   "AZURE_CLIENT_SECRET=" \
-                  "AZURE_TENANT_ID=" \
-                  "AZURE_AD_CLIENT_ID=" \
-                  "AZURE_AD_CLIENT_SECRET=" \
-                  "AZURE_AD_TENANT_ID=" \
-                  "AZURE_AD_INSTANCE=" \
-                  "AZURE_AD_DOMAIN=" || echo "Failed to set settings"
-
-              az webapp auth microsoft update --name "$app_name" --resource-group "$resource_group" --client-id "" --client-secret "" --tenant-id "" 2>/dev/null || echo "No Microsoft auth to remove"
-
-              az webapp cors add --name "$app_name" --resource-group "$resource_group" --allowed-origins "*" || echo "CORS already configured"
+                  "AZURE_TENANT_ID=" || echo "Failed to set settings"
+              az webapp auth microsoft update --name "$app_name" --resource-group "$RESOURCE_GROUP" --client-id "" --client-secret "" --tenant-id "" 2>/dev/null || echo "No Microsoft auth to remove"
+              az webapp cors add --name "$app_name" --resource-group "$RESOURCE_GROUP" --allowed-origins "*" || echo "CORS already configured"
           }
 
-          disable_auth_completely "$FRONTEND_APP" "$RESOURCE_GROUP"
-          disable_auth_completely "$ADMIN_APP" "$RESOURCE_GROUP"
+          disable_auth_completely "$FRONTEND_APP"
+          disable_auth_completely "$ADMIN_APP"
 
           echo "Restarting apps to apply changes..."
-          az webapp restart --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" || echo "Failed to restart frontend"
-          az webapp restart --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" || echo "Failed to restart admin"
+          for app in "$FRONTEND_APP" "$ADMIN_APP"; do
+            for i in {1..3}; do
+              az webapp restart --name "$app" --resource-group "$RESOURCE_GROUP" && break || echo "Retry restart ($i) for $app" && sleep 30
+            done
+          done
 
-          echo "Waiting for changes to take effect..."
+          echo "Waiting 180 seconds for settings to take effect..."
           sleep 180
 
-          FRONTEND_AUTH=$(az webapp auth show --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null || echo "false")
-          ADMIN_AUTH=$(az webapp auth show --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null || echo "false")
+          echo "Verifying auth is disabled..."
+          FRONTEND_AUTH=$(az webapp auth show --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv || echo "true")
+          ADMIN_AUTH=$(az webapp auth show --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv || echo "true")
 
           echo "Frontend Auth Enabled: $FRONTEND_AUTH"
           echo "Admin Auth Enabled: $ADMIN_AUTH"
 
           if [ "$FRONTEND_AUTH" = "false" ] && [ "$ADMIN_AUTH" = "false" ]; then
-            echo "✅ Authentication successfully disabled on both apps"
+            echo "✅ Authentication disabled"
           else
-            echo "⚠️ Authentication may still be enabled"
+            echo "❌ Authentication may still be enabled"
             exit 1
           fi
 
