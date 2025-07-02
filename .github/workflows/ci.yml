@@ -200,196 +200,235 @@ jobs:
           echo "Frontend URL: ${{ env.FRONTEND_WEBSITE_URL }}"
           echo "Admin URL: ${{ env.ADMIN_WEBSITE_URL }}"
 
-      - name: Configure App Services for Testing (Robust)
+      - name: Configure App Services for Testing (Enhanced)
         run: |
-          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
-          az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+                az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+                az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-          echo "=== Robust App Service Authentication Disabling ==="
+                echo "=== Enhanced App Service Authentication Disabling ==="
 
-          # Method 1: Try to get from files created by Makefile
-          RESOURCE_GROUP=""
-          FRONTEND_APP=""
-          ADMIN_APP=""
+                # Initialize variables
+                RESOURCE_GROUP=""
+                FRONTEND_APP=""
+                ADMIN_APP=""
 
-          if [ -f "resource_group.txt" ] && [ -s "resource_group.txt" ]; then
-            RESOURCE_GROUP=$(cat resource_group.txt | tr -d '\n\r' | xargs)
-            echo "✅ Found resource group from file: $RESOURCE_GROUP"
-          fi
-
-          if [ -f "frontend_app.txt" ] && [ -s "frontend_app.txt" ]; then
-            FRONTEND_APP=$(cat frontend_app.txt | tr -d '\n\r' | xargs)
-            echo "✅ Found frontend app from file: $FRONTEND_APP"
-          fi
-
-          if [ -f "admin_app.txt" ] && [ -s "admin_app.txt" ]; then
-            ADMIN_APP=$(cat admin_app.txt | tr -d '\n\r' | xargs)
-            echo "✅ Found admin app from file: $ADMIN_APP"
-          fi
-
-          # Method 2: Extract from URLs if we have them
-          if [ -z "$FRONTEND_APP" ] && [ -n "${{ env.FRONTEND_WEBSITE_URL }}" ]; then
-            FRONTEND_APP=$(echo "${{ env.FRONTEND_WEBSITE_URL }}" | sed 's|https://||;s|\.azurewebsites\.net.*||')
-            echo "✅ Extracted frontend app from URL: $FRONTEND_APP"
-          fi
-
-          if [ -z "$ADMIN_APP" ] && [ -n "${{ env.ADMIN_WEBSITE_URL }}" ]; then
-            ADMIN_APP=$(echo "${{ env.ADMIN_WEBSITE_URL }}" | sed 's|https://||;s|\.azurewebsites\.net.*||')
-            echo "✅ Extracted admin app from URL: $ADMIN_APP"
-          fi
-
-          # Method 3: Discover resource group if still missing
-          if [ -z "$RESOURCE_GROUP" ]; then
-            echo "🔍 Discovering resource group..."
-            RESOURCE_GROUP=$(az group list --query "[?contains(name, 'rg-') || contains(name, '${{ github.run_id }}')].name" -o tsv | head -1)
-            if [ -n "$RESOURCE_GROUP" ]; then
-              echo "✅ Discovered resource group: $RESOURCE_GROUP"
-            fi
-          fi
-
-          # Method 4: Discover apps from resource group if still missing
-          if [ -n "$RESOURCE_GROUP" ] && ([ -z "$FRONTEND_APP" ] || [ -z "$ADMIN_APP" ]); then
-            echo "🔍 Discovering apps in resource group $RESOURCE_GROUP..."
-            APPS=$(az webapp list --resource-group "$RESOURCE_GROUP" --query "[].name" -o tsv)
-            for app in $APPS; do
-              echo "Found app: $app"
-              if echo "$app" | grep -q "admin"; then
-                ADMIN_APP="$app"
-                echo "✅ Identified admin app: $ADMIN_APP"
-              elif [ -z "$FRONTEND_APP" ]; then
-                FRONTEND_APP="$app"
-                echo "✅ Identified frontend app: $FRONTEND_APP"
-              fi
-            done
-          fi
-
-          # Check if we have what we need
-          if [ -z "$RESOURCE_GROUP" ]; then
-            echo "❌ Could not determine resource group"
-            exit 1
-          fi
-
-          if [ -z "$FRONTEND_APP" ] && [ -z "$ADMIN_APP" ]; then
-            echo "❌ Could not find any apps to configure"
-            exit 1
-          fi
-
-          echo "=== Configuration Summary ==="
-          echo "Resource Group: $RESOURCE_GROUP"
-          echo "Frontend App: ${FRONTEND_APP:-'Not found'}"
-          echo "Admin App: ${ADMIN_APP:-'Not found'}"
-
-          # Function to completely disable authentication
-          disable_auth_completely() {
-              local app_name=$1
-              if [ -z "$app_name" ]; then
-                echo "⚠️ App name is empty, skipping"
-                return
-              fi
-
-              echo "=== Completely disabling authentication for $app_name ==="
-
-              # Check if app exists
-              if ! az webapp show --name "$app_name" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
-                echo "❌ App $app_name not found in resource group $RESOURCE_GROUP"
-                return
-              fi
-
-              # Step 1: Disable Easy Auth
-              echo "Step 1: Disabling Easy Auth..."
-              for attempt in {1..3}; do
-                if az webapp auth update --name "$app_name" --resource-group "$RESOURCE_GROUP" --enabled false; then
-                  echo "✅ Easy Auth disabled (attempt $attempt)"
-                  break
-                else
-                  echo "❌ Easy Auth disable failed (attempt $attempt), retrying in 15s..."
-                  sleep 15
+                # Method 1: Extract app names from URLs
+                if [ -n "${{ env.FRONTEND_WEBSITE_URL }}" ]; then
+                  FRONTEND_APP=$(echo "${{ env.FRONTEND_WEBSITE_URL }}" | sed 's|https://||;s|\.azurewebsites\.net.*||')
+                  echo "✅ Extracted frontend app from URL: $FRONTEND_APP"
                 fi
-              done
 
-              # Step 2: Remove all authentication providers
-              echo "Step 2: Removing authentication providers..."
-              az webapp auth microsoft update --name "$app_name" --resource-group "$RESOURCE_GROUP" --client-id "" --client-secret "" --tenant-id "" 2>/dev/null || echo "No Microsoft provider to remove"
-              az webapp auth google update --name "$app_name" --resource-group "$RESOURCE_GROUP" --client-id "" --client-secret "" 2>/dev/null || echo "No Google provider to remove"
-              az webapp auth facebook update --name "$app_name" --resource-group "$RESOURCE_GROUP" --app-id "" --app-secret "" 2>/dev/null || echo "No Facebook provider to remove"
-              az webapp auth twitter update --name "$app_name" --resource-group "$RESOURCE_GROUP" --consumer-key "" --consumer-secret "" 2>/dev/null || echo "No Twitter provider to remove"
-
-              # Step 3: Set unauthenticated client action
-              echo "Step 3: Setting unauthenticated client action..."
-              az webapp config set --name "$app_name" --resource-group "$RESOURCE_GROUP" --generic-configurations '{"unauthenticatedClientAction":"AllowAnonymous"}' || echo "Failed setting unauthenticated action"
-
-              # Step 4: Clear all authentication-related app settings
-              echo "Step 4: Clearing authentication app settings..."
-              az webapp config appsettings set --name "$app_name" --resource-group "$RESOURCE_GROUP" --settings \
-                  "AUTH_ENABLED=false" \
-                  "AZURE_USE_AUTHENTICATION=false" \
-                  "AZURE_ENABLE_AUTH=false" \
-                  "REQUIRE_AUTHENTICATION=false" \
-                  "AUTHENTICATION_ENABLED=false" \
-                  "WEBSITES_AUTH_ENABLED=false" \
-                  "WEBSITE_AUTH_ENABLED=false" \
-                  "AZURE_CLIENT_ID=" \
-                  "AZURE_CLIENT_SECRET=" \
-                  "AZURE_TENANT_ID=" \
-                  "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET=" \
-                  "FACEBOOK_APP_SECRET=" \
-                  "GOOGLE_CLIENT_SECRET=" \
-                  "TWITTER_CONSUMER_SECRET=" || echo "Failed to set some settings"
-
-              # Step 5: Direct resource update to ensure auth is disabled
-              echo "Step 5: Direct auth configuration update..."
-              az resource update \
-                --resource-group "$RESOURCE_GROUP" \
-                --name "$app_name/authsettings" \
-                --resource-type "Microsoft.Web/sites/config" \
-                --set properties.enabled=false \
-                --set properties.unauthenticatedClientAction="AllowAnonymous" \
-                --set properties.defaultProvider="" 2>/dev/null || echo "Direct auth config update failed"
-
-              # Step 6: Configure CORS
-              echo "Step 6: Configuring CORS..."
-              az webapp cors add --name "$app_name" --resource-group "$RESOURCE_GROUP" --allowed-origins "*" || echo "CORS already configured"
-
-              # Step 7: Restart app
-              echo "Step 7: Restarting $app_name..."
-              for i in {1..3}; do
-                if az webapp restart --name "$app_name" --resource-group "$RESOURCE_GROUP"; then
-                  echo "✅ $app_name restarted successfully (attempt $i)"
-                  break
-                else
-                  echo "❌ $app_name restart failed (attempt $i), retrying in 15s..."
-                  sleep 15
+                if [ -n "${{ env.ADMIN_WEBSITE_URL }}" ]; then
+                  ADMIN_APP=$(echo "${{ env.ADMIN_WEBSITE_URL }}" | sed 's|https://||;s|\.azurewebsites\.net.*||')
+                  echo "✅ Extracted admin app from URL: $ADMIN_APP"
                 fi
-              done
 
-              echo "✅ Authentication disable steps completed for $app_name"
-          }
+                # Method 2: Find resource group by searching for the apps
+                if [ -n "$FRONTEND_APP" ]; then
+                  echo "🔍 Finding resource group for app: $FRONTEND_APP"
+                  RESOURCE_GROUP=$(az webapp list --query "[?name=='$FRONTEND_APP'].resourceGroup" -o tsv | head -1)
+                  if [ -n "$RESOURCE_GROUP" ]; then
+                    echo "✅ Found resource group via frontend app: $RESOURCE_GROUP"
+                  fi
+                fi
 
-          # Apply authentication disabling to both apps (if they exist)
-          if [ -n "$FRONTEND_APP" ]; then
-            disable_auth_completely "$FRONTEND_APP"
-          fi
+                # Fallback: Try admin app if frontend didn't work
+                if [ -z "$RESOURCE_GROUP" ] && [ -n "$ADMIN_APP" ]; then
+                  echo "🔍 Finding resource group for app: $ADMIN_APP"
+                  RESOURCE_GROUP=$(az webapp list --query "[?name=='$ADMIN_APP'].resourceGroup" -o tsv | head -1)
+                  if [ -n "$RESOURCE_GROUP" ]; then
+                    echo "✅ Found resource group via admin app: $RESOURCE_GROUP"
+                  fi
+                fi
 
-          if [ -n "$ADMIN_APP" ]; then
-            disable_auth_completely "$ADMIN_APP"
-          fi
+                # Fallback: Search by environment name pattern
+                if [ -z "$RESOURCE_GROUP" ]; then
+                  echo "🔍 Searching for resource group by environment pattern..."
+                  RESOURCE_GROUP=$(az group list --query "[?contains(name, 'rg-') || contains(name, '${{ github.run_id }}')].name" -o tsv | head -1)
+                  if [ -n "$RESOURCE_GROUP" ]; then
+                    echo "✅ Found resource group by pattern: $RESOURCE_GROUP"
+                  fi
+                fi
 
-          echo "=== Waiting for changes to propagate ==="
-          echo "Waiting 300 seconds for authentication settings to take effect..."
-          sleep 300
+                # Final validation
+                if [ -z "$RESOURCE_GROUP" ]; then
+                  echo "❌ Could not determine resource group"
+                  echo "Available resource groups:"
+                  az group list --query "[].name" -o tsv
+                  exit 1
+                fi
 
-          echo "=== Final Verification ==="
-          if [ -n "$FRONTEND_APP" ]; then
-            FRONTEND_AUTH=$(az webapp auth show --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null || echo "false")
-            echo "Frontend Auth Enabled: $FRONTEND_AUTH"
-          fi
+                if [ -z "$FRONTEND_APP" ] && [ -z "$ADMIN_APP" ]; then
+                  echo "❌ Could not extract app names from URLs"
+                  echo "Frontend URL: ${{ env.FRONTEND_WEBSITE_URL }}"
+                  echo "Admin URL: ${{ env.ADMIN_WEBSITE_URL }}"
+                  exit 1
+                fi
 
-          if [ -n "$ADMIN_APP" ]; then
-            ADMIN_AUTH=$(az webapp auth show --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null || echo "false")
-            echo "Admin Auth Enabled: $ADMIN_AUTH"
-          fi
+                echo "=== Configuration Summary ==="
+                echo "Resource Group: $RESOURCE_GROUP"
+                echo "Frontend App: ${FRONTEND_APP:-'Not found'}"
+                echo "Admin App: ${ADMIN_APP:-'Not found'}"
 
-          echo "✅ Authentication configuration completed"
+                # Verify apps exist in the resource group
+                echo "=== Verifying Apps in Resource Group ==="
+                if [ -n "$FRONTEND_APP" ]; then
+                  if az webapp show --name "$FRONTEND_APP" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+                    echo "✅ Frontend app $FRONTEND_APP exists in $RESOURCE_GROUP"
+                  else
+                    echo "❌ Frontend app $FRONTEND_APP not found in $RESOURCE_GROUP"
+                    # Try to find it in other resource groups
+                    ACTUAL_RG=$(az webapp list --query "[?name=='$FRONTEND_APP'].resourceGroup" -o tsv | head -1)
+                    if [ -n "$ACTUAL_RG" ]; then
+                      echo "✅ Found frontend app in different resource group: $ACTUAL_RG"
+                      FRONTEND_RG="$ACTUAL_RG"
+                    else
+                      echo "❌ Frontend app not found anywhere"
+                      FRONTEND_APP=""
+                    fi
+                  fi
+                fi
+
+                if [ -n "$ADMIN_APP" ]; then
+                  if az webapp show --name "$ADMIN_APP" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+                    echo "✅ Admin app $ADMIN_APP exists in $RESOURCE_GROUP"
+                  else
+                    echo "❌ Admin app $ADMIN_APP not found in $RESOURCE_GROUP"
+                    # Try to find it in other resource groups
+                    ACTUAL_RG=$(az webapp list --query "[?name=='$ADMIN_APP'].resourceGroup" -o tsv | head -1)
+                    if [ -n "$ACTUAL_RG" ]; then
+                      echo "✅ Found admin app in different resource group: $ACTUAL_RG"
+                      ADMIN_RG="$ACTUAL_RG"
+                    else
+                      echo "❌ Admin app not found anywhere"
+                      ADMIN_APP=""
+                    fi
+                  fi
+                fi
+
+                # Function to completely disable authentication
+                disable_auth_completely() {
+                    local app_name=$1
+                    local rg_name=$2
+
+                    if [ -z "$app_name" ] || [ -z "$rg_name" ]; then
+                      echo "⚠️ App name or resource group is empty, skipping"
+                      return
+                    fi
+
+                    echo "=== Completely disabling authentication for $app_name in $rg_name ==="
+
+                    # Step 1: Disable Easy Auth with retries
+                    echo "Step 1: Disabling Easy Auth..."
+                    for attempt in {1..3}; do
+                      if az webapp auth update --name "$app_name" --resource-group "$rg_name" --enabled false >/dev/null 2>&1; then
+                        echo "✅ Easy Auth disabled (attempt $attempt)"
+                        break
+                      else
+                        echo "❌ Easy Auth disable failed (attempt $attempt), retrying in 10s..."
+                        sleep 10
+                      fi
+                    done
+
+                    # Step 2: Remove all authentication providers
+                    echo "Step 2: Removing authentication providers..."
+                    az webapp auth microsoft update --name "$app_name" --resource-group "$rg_name" --client-id "" --client-secret "" --tenant-id "" 2>/dev/null || echo "No Microsoft provider to remove"
+                    az webapp auth google update --name "$app_name" --resource-group "$rg_name" --client-id "" --client-secret "" 2>/dev/null || echo "No Google provider to remove"
+                    az webapp auth facebook update --name "$app_name" --resource-group "$rg_name" --app-id "" --app-secret "" 2>/dev/null || echo "No Facebook provider to remove"
+
+                    # Step 3: Set unauthenticated client action
+                    echo "Step 3: Setting unauthenticated client action..."
+                    az webapp config set --name "$app_name" --resource-group "$rg_name" --generic-configurations '{"unauthenticatedClientAction":"AllowAnonymous"}' 2>/dev/null || echo "Failed setting unauthenticated action"
+
+                    # Step 4: Clear all authentication-related app settings
+                    echo "Step 4: Clearing authentication app settings..."
+                    az webapp config appsettings set --name "$app_name" --resource-group "$rg_name" --settings \
+                        "AUTH_ENABLED=false" \
+                        "AZURE_USE_AUTHENTICATION=false" \
+                        "AZURE_ENABLE_AUTH=false" \
+                        "REQUIRE_AUTHENTICATION=false" \
+                        "AUTHENTICATION_ENABLED=false" \
+                        "WEBSITES_AUTH_ENABLED=false" \
+                        "WEBSITE_AUTH_ENABLED=false" \
+                        "AZURE_CLIENT_ID=" \
+                        "AZURE_CLIENT_SECRET=" \
+                        "AZURE_TENANT_ID=" \
+                        "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET=" 2>/dev/null || echo "Failed to set some settings"
+
+                    # Step 5: Direct resource update to ensure auth is disabled
+                    echo "Step 5: Direct auth configuration update..."
+                    az resource update \
+                      --resource-group "$rg_name" \
+                      --name "$app_name/authsettings" \
+                      --resource-type "Microsoft.Web/sites/config" \
+                      --set properties.enabled=false \
+                      --set properties.unauthenticatedClientAction="AllowAnonymous" \
+                      --set properties.defaultProvider="" 2>/dev/null || echo "Direct auth config update failed"
+
+                    # Step 6: Configure CORS to allow all origins
+                    echo "Step 6: Configuring CORS..."
+                    az webapp cors add --name "$app_name" --resource-group "$rg_name" --allowed-origins "*" 2>/dev/null || echo "CORS already configured"
+
+                    # Step 7: Restart app with retries
+                    echo "Step 7: Restarting $app_name..."
+                    for i in {1..3}; do
+                      if az webapp restart --name "$app_name" --resource-group "$rg_name" >/dev/null 2>&1; then
+                        echo "✅ $app_name restarted successfully (attempt $i)"
+                        break
+                      else
+                        echo "❌ $app_name restart failed (attempt $i), retrying in 10s..."
+                        sleep 10
+                      fi
+                    done
+
+                    echo "✅ Authentication disable steps completed for $app_name"
+                }
+
+                # Apply authentication disabling to both apps
+                if [ -n "$FRONTEND_APP" ]; then
+                  RG_TO_USE=${FRONTEND_RG:-$RESOURCE_GROUP}
+                  disable_auth_completely "$FRONTEND_APP" "$RG_TO_USE"
+                fi
+
+                if [ -n "$ADMIN_APP" ]; then
+                  RG_TO_USE=${ADMIN_RG:-$RESOURCE_GROUP}
+                  disable_auth_completely "$ADMIN_APP" "$RG_TO_USE"
+                fi
+
+                echo "=== Waiting for changes to propagate ==="
+                echo "Waiting 180 seconds for authentication settings to take effect..."
+                sleep 180
+
+                echo "=== Final Verification ==="
+                if [ -n "$FRONTEND_APP" ]; then
+                  RG_TO_USE=${FRONTEND_RG:-$RESOURCE_GROUP}
+                  FRONTEND_AUTH=$(az webapp auth show --name "$FRONTEND_APP" --resource-group "$RG_TO_USE" --query "enabled" --output tsv 2>/dev/null || echo "false")
+                  echo "Frontend Auth Enabled: $FRONTEND_AUTH"
+
+                  # Test accessibility
+                  echo "Testing frontend accessibility..."
+                  if curl -s -o /dev/null -w "%{http_code}" "${{ env.FRONTEND_WEBSITE_URL }}" | grep -q "200\|302"; then
+                    echo "✅ Frontend is accessible without authentication"
+                  else
+                    echo "❌ Frontend may still require authentication"
+                  fi
+                fi
+
+                if [ -n "$ADMIN_APP" ]; then
+                  RG_TO_USE=${ADMIN_RG:-$RESOURCE_GROUP}
+                  ADMIN_AUTH=$(az webapp auth show --name "$ADMIN_APP" --resource-group "$RG_TO_USE" --query "enabled" --output tsv 2>/dev/null || echo "false")
+                  echo "Admin Auth Enabled: $ADMIN_AUTH"
+
+                  # Test accessibility
+                  echo "Testing admin accessibility..."
+                  if curl -s -o /dev/null -w "%{http_code}" "${{ env.ADMIN_WEBSITE_URL }}" | grep -q "200\|302"; then
+                    echo "✅ Admin is accessible without authentication"
+                  else
+                    echo "❌ Admin may still require authentication"
+                  fi
+                fi
+
+                echo "✅ Authentication configuration completed"
 
       - name: Verify Deployment Health
         run: |
