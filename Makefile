@@ -92,20 +92,28 @@ deploy: azd-login ## Deploy everything to Azure
 	FRONTEND_APP=$$(cat frontend_url.txt | sed 's|https://||;s|\.azurewebsites\.net.*||'); \
 	ADMIN_APP=$$(cat admin_url.txt | sed 's|https://||;s|\.azurewebsites\.net.*||'); \
 	@echo "Extracting app names from URLs..."\
-	@for i in {1..5}; do \
+	@i=0; \
+	while [ $$i -lt 5 ]; do \
+		RESOURCE_GROUP=$$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2); \
 		FRONTEND_APP=$$(cat frontend_url.txt | sed 's|https://||;s|\.azurewebsites\.net.*||'); \
 		ADMIN_APP=$$(cat admin_url.txt | sed 's|https://||;s|\.azurewebsites\.net.*||'); \
-		RESOURCE_GROUP=$$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2); \
-		if [ -n "$$FRONTEND_APP" ] && [ -n "$$ADMIN_APP" ] && [ -n "$$RESOURCE_GROUP" ]; then \
+		if [ -n "$$RESOURCE_GROUP" ] && [ -n "$$FRONTEND_APP" ] && [ -n "$$ADMIN_APP" ]; then \
+			echo "✅ Successfully extracted values"; \
 			echo "$$RESOURCE_GROUP" > resource_group.txt; \
 			echo "$$FRONTEND_APP" > frontend_app.txt; \
 			echo "$$ADMIN_APP" > admin_app.txt; \
 			break; \
 		else \
-			echo "Retrying app/resource name extraction ($$i/5)..."; \
+			echo "⚠️ Retry $$((i+1))/5: Missing one or more values. Retrying in 10s..."; \
+			i=$$((i + 1)); \
 			sleep 10; \
 		fi; \
-	done
+	done; \
+	if [ -z "$$RESOURCE_GROUP" ] || [ -z "$$FRONTEND_APP" ] || [ -z "$$ADMIN_APP" ]; then \
+		echo "❌ Failed to extract necessary values after retries"; \
+		exit 1; \
+	fi
+
 
 	echo "Resource Group: $$RESOURCE_GROUP"; \
 	echo "Frontend App: $$FRONTEND_APP"; \
