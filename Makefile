@@ -88,10 +88,7 @@ deploy: azd-login ## Deploy everything to Azure
 	@if [ ! -s frontend_url.txt ]; then azd env get-values | grep FRONTEND_WEBSITE_URL | cut -d'=' -f2- > frontend_url.txt; fi
 	@if [ ! -s admin_url.txt ]; then azd env get-values | grep ADMIN_WEBSITE_URL | cut -d'=' -f2- > admin_url.txt; fi
 
-	@RESOURCE_GROUP=$$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2); \
-	FRONTEND_APP=$$(cat frontend_url.txt | sed 's|https://||;s|\.azurewebsites\.net.*||'); \
-	ADMIN_APP=$$(cat admin_url.txt | sed 's|https://||;s|\.azurewebsites\.net.*||'); \
-	@echo "Extracting app names from URLs..."\
+	@echo "Extracting app names from URLs..."
 	@i=0; \
 	while [ $$i -lt 5 ]; do \
 		RESOURCE_GROUP=$$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2); \
@@ -112,38 +109,54 @@ deploy: azd-login ## Deploy everything to Azure
 	if [ -z "$$RESOURCE_GROUP" ] || [ -z "$$FRONTEND_APP" ] || [ -z "$$ADMIN_APP" ]; then \
 		echo "❌ Failed to extract necessary values after retries"; \
 		exit 1; \
-	fi
-
-
+	fi; \
 	echo "Resource Group: $$RESOURCE_GROUP"; \
 	echo "Frontend App: $$FRONTEND_APP"; \
 	echo "Admin App: $$ADMIN_APP"; \
-	echo "$$RESOURCE_GROUP" > resource_group.txt; \
-	echo "$$FRONTEND_APP" > frontend_app.txt; \
-	echo "$$ADMIN_APP" > admin_app.txt; \
 	for app in $$FRONTEND_APP $$ADMIN_APP; do \
-		echo "=== Disabling auth for $$app ==="; \
-		az webapp auth update --name "$$app" --resource-group "$$RESOURCE_GROUP" --enabled false; \
-		az webapp config set --name "$$app" --resource-group "$$RESOURCE_GROUP" --generic-configurations '{"unauthenticatedClientAction":"AllowAnonymous"}'; \
+		echo "=== Completely disabling authentication for $$app ==="; \
+		echo "Disabling Easy Auth..."; \
+		az webapp auth update --name "$$app" --resource-group "$$RESOURCE_GROUP" --enabled false || echo "Auth update failed, continuing..."; \
+		echo "Removing authentication providers..."; \
+		az webapp auth microsoft update --name "$$app" --resource-group "$$RESOURCE_GROUP" --client-id "" --client-secret "" --tenant-id "" 2>/dev/null || echo "No Microsoft provider to remove"; \
+		az webapp auth google update --name "$$app" --resource-group "$$RESOURCE_GROUP" --client-id "" --client-secret "" 2>/dev/null || echo "No Google provider to remove"; \
+		az webapp auth facebook update --name "$$app" --resource-group "$$RESOURCE_GROUP" --app-id "" --app-secret "" 2>/dev/null || echo "No Facebook provider to remove"; \
+		az webapp auth twitter update --name "$$app" --resource-group "$$RESOURCE_GROUP" --consumer-key "" --consumer-secret "" 2>/dev/null || echo "No Twitter provider to remove"; \
+		echo "Setting unauthenticated action..."; \
+		az webapp config set --name "$$app" --resource-group "$$RESOURCE_GROUP" --generic-configurations '{"unauthenticatedClientAction":"AllowAnonymous"}' || echo "Failed to set unauthenticated action"; \
+		echo "Setting app settings to disable auth..."; \
 		az webapp config appsettings set --name "$$app" --resource-group "$$RESOURCE_GROUP" --settings \
-		  WEBSITES_AUTH_ENABLED=false \
-		  WEBSITE_AUTH_ENABLED=false \
-		  AUTH_ENABLED=false \
-		  AZURE_USE_AUTHENTICATION=false \
-		  AZURE_ENABLE_AUTH=false \
-		  REQUIRE_AUTHENTICATION=false \
-		  AUTHENTICATION_ENABLED=false \
-		  WEBSITE_RUN_FROM_PACKAGE=1; \
-		az webapp cors add --name "$$app" --resource-group "$$RESOURCE_GROUP" --allowed-origins "*" || echo "CORS already configured"; \
+		  "WEBSITES_AUTH_ENABLED=false" \
+		  "WEBSITE_AUTH_ENABLED=false" \
+		  "AUTH_ENABLED=false" \
+		  "AZURE_USE_AUTHENTICATION=false" \
+		  "AZURE_ENABLE_AUTH=false" \
+		  "REQUIRE_AUTHENTICATION=false" \
+		  "AUTHENTICATION_ENABLED=false" \
+		  "WEBSITE_RUN_FROM_PACKAGE=1" \
+		  "AZURE_CLIENT_ID=" \
+		  "AZURE_CLIENT_SECRET=" \
+		  "AZURE_TENANT_ID=" || echo "Failed to set some app settings"; \
+		echo "Configuring CORS..."; \
+		az webapp cors add --name "$$app" --resource-group "$$RESOURCE_GROUP" --allowed-origins "*" || echo "CORS already configured or failed"; \
+		echo "Removing any remaining auth configuration..."; \
+		az resource update --resource-group "$$RESOURCE_GROUP" --name "$$app/authsettings" --resource-type "Microsoft.Web/sites/config" --set properties.enabled=false properties.unauthenticatedClientAction="AllowAnonymous" 2>/dev/null || echo "Direct auth config update failed"; \
 	done; \
-	az webapp restart --name "$$FRONTEND_APP" --resource-group "$$RESOURCE_GROUP"; \
-	az webapp restart --name "$$ADMIN_APP" --resource-group "$$RESOURCE_GROUP"; \
-	sleep 180; \
-	FRONTEND_AUTH=$$(az webapp auth show --name $$FRONTEND_APP --resource-group $$RESOURCE_GROUP --query "enabled" --output tsv || echo "false"); \
-	ADMIN_AUTH=$$(az webapp auth show --name $$ADMIN_APP --resource-group $$RESOURCE_GROUP --query "enabled" --output tsv || echo "false"); \
+	echo "Restarting applications to apply changes..."; \
+	az webapp restart --name "$$FRONTEND_APP" --resource-group "$$RESOURCE_GROUP" || echo "Frontend restart failed"; \
+	az webapp restart --name "$$ADMIN_APP" --resource-group "$$RESOURCE_GROUP" || echo "Admin restart failed"; \
+	echo "Waiting 300 seconds for changes to propagate..."; \
+	sleep 300; \
+	echo "Verifying authentication status..."; \
+	FRONTEND_AUTH=$$(az webapp auth show --name "$$FRONTEND_APP" --resource-group "$$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null || echo "false"); \
+	ADMIN_AUTH=$$(az webapp auth show --name "$$ADMIN_APP" --resource-group "$$RESOURCE_GROUP" --query "enabled" --output tsv 2>/dev/null || echo "false"); \
 	echo "Frontend Auth Enabled: $$FRONTEND_AUTH"; \
 	echo "Admin Auth Enabled: $$ADMIN_AUTH"; \
-	if [ "$$FRONTEND_AUTH" = "false" ] && [ "$$ADMIN_AUTH" = "false" ]; then echo "✅ Authentication disabled"; fi
+	if [ "$$FRONTEND_AUTH" = "false" ] && [ "$$ADMIN_AUTH" = "false" ]; then \
+		echo "✅ Authentication successfully disabled"; \
+	else \
+		echo "⚠️ Authentication may still be enabled, but continuing..."; \
+	fi
 
 	@echo "=== Final Deployment Status ==="
 	@echo "Frontend URL:" && cat frontend_url.txt
