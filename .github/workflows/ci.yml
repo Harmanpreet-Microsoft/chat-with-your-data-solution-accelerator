@@ -379,8 +379,8 @@ jobs:
                 # Run the enhanced script
                 ./disable_auth_enhanced.sh
 
-            - name: Final Status Check
-              run: |
+      - name: Final Status Check
+        run: |
                 echo "=== Final Deployment Status ==="
                 echo "Frontend URL: ${{ env.FRONTEND_WEBSITE_URL }}"
                 echo "Admin URL: ${{ env.ADMIN_WEBSITE_URL }}"
