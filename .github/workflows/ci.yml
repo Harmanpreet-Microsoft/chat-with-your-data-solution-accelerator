@@ -392,6 +392,8 @@ jobs:
                 echo "🌐 Try accessing your applications:"
                 echo "   Frontend: ${{ env.FRONTEND_WEBSITE_URL }}"
                 echo "   Admin: ${{ env.ADMIN_WEBSITE_URL }}"
+      - name: Wait for 30 minutes
+        run: sleep 1800
 
       - name: Verify Deployment Health
         run: |
