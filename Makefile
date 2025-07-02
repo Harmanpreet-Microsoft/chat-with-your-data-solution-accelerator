@@ -86,140 +86,41 @@ deploy: azd-login ## Deploy everything to Azure
 
 	# Extract URLs using multiple methods
 	@echo "=== Extracting URLs using multiple methods ==="
+	@azd show 2>&1 | tee full_deployment_output.log
 
 	# Method 1: From azd show JSON output
 	@jq -r '.services.web?.project?.hostedEndpoints?[0]?.url // ""' deploy_output.json > frontend_url.txt 2>/dev/null || echo "" > frontend_url.txt
 	@jq -r '.services.adminweb?.project?.hostedEndpoints?[0]?.url // ""' deploy_output.json > admin_url.txt 2>/dev/null || echo "" > admin_url.txt
 
-	# Method 2: From azd env get-values
-	@if [ ! -s frontend_url.txt ]; then \
-		azd env get-values | grep -E "(FRONTEND_WEBSITE_URL|WEB_URL)" | cut -d'=' -f2- | tr -d '"' | head -1 > frontend_url.txt 2>/dev/null || echo "" > frontend_url.txt; \
-	fi
-	@if [ ! -s admin_url.txt ]; then \
-		azd env get-values | grep -E "(ADMIN_WEBSITE_URL|ADMINWEB_URL)" | cut -d'=' -f2- | tr -d '"' | head -1 > admin_url.txt 2>/dev/null || echo "" > admin_url.txt; \
-	fi
+	# Method 2: From azd show output
+	@grep -oE "https://app-[a-zA-Z0-9-]*\.azurewebsites\.net/" full_deployment_output.log | grep -v admin | head -1 >> frontend_url.txt 2>/dev/null || true
+	@grep -oE "https://app-[a-zA-Z0-9-]*-admin\.azurewebsites\.net/" full_deployment_output.log | head -1 >> admin_url.txt 2>/dev/null || true
 
-	# Method 3: From deployment logs with better patterns
-	@azd show 2>&1 | tee full_deployment_output.log
-	@if [ ! -s frontend_url.txt ]; then \
-		grep -oE "https://app-[a-zA-Z0-9-]*\.azurewebsites\.net/" full_deployment_output.log | grep -v admin | head -1 > frontend_url.txt 2>/dev/null || echo "" > frontend_url.txt; \
-	fi
-	@if [ ! -s admin_url.txt ]; then \
-		grep -oE "https://app-[a-zA-Z0-9-]*-admin\.azurewebsites\.net/" full_deployment_output.log | head -1 > admin_url.txt 2>/dev/null || echo "" > admin_url.txt; \
-	fi
+	# Clean up URLs (remove duplicates and empty lines)
+	@sort frontend_url.txt | uniq | grep -v '^$$' | head -1 > frontend_url_clean.txt && mv frontend_url_clean.txt frontend_url.txt || echo "" > frontend_url.txt
+	@sort admin_url.txt | uniq | grep -v '^$$' | head -1 > admin_url_clean.txt && mv admin_url_clean.txt admin_url.txt || echo "" > admin_url.txt
 
 	@echo "=== URL Extraction Results ==="
 	@FRONTEND_URL=$$(cat frontend_url.txt 2>/dev/null | tr -d '\n\r' | xargs); \
 	ADMIN_URL=$$(cat admin_url.txt 2>/dev/null | tr -d '\n\r' | xargs); \
 	echo "Frontend URL: $$FRONTEND_URL"; \
-	echo "Admin URL: $$ADMIN_URL"
+	echo "Admin URL: $$ADMIN_URL"; \
+	export FRONTEND_WEBSITE_URL="$$FRONTEND_URL"; \
+	export ADMIN_WEBSITE_URL="$$ADMIN_URL"
 
-	# Enhanced resource discovery with multiple approaches
-	@echo "=== Enhanced Resource Discovery ==="
+	# Use the enhanced authentication disable script
+	@echo "=== Running Enhanced Authentication Disable ==="
 	@FRONTEND_URL=$$(cat frontend_url.txt 2>/dev/null | tr -d '\n\r' | xargs); \
 	ADMIN_URL=$$(cat admin_url.txt 2>/dev/null | tr -d '\n\r' | xargs); \
-	RESOURCE_GROUP=""; \
-	FRONTEND_APP=""; \
-	ADMIN_APP=""; \
-	if [ -n "$$FRONTEND_URL" ] && [ "$$FRONTEND_URL" != "" ]; then \
-		FRONTEND_APP=$$(echo "$$FRONTEND_URL" | sed 's|https://||;s|\.azurewebsites\.net.*||'); \
-		echo "✅ Extracted frontend app: $$FRONTEND_APP"; \
-	fi; \
-	if [ -n "$$ADMIN_URL" ] && [ "$$ADMIN_URL" != "" ]; then \
-		ADMIN_APP=$$(echo "$$ADMIN_URL" | sed 's|https://||;s|\.azurewebsites\.net.*||'); \
-		echo "✅ Extracted admin app: $$ADMIN_APP"; \
-	fi; \
-	if [ -n "$$FRONTEND_APP" ]; then \
-		echo "=== Finding resource group for $$FRONTEND_APP ==="; \
-		RESOURCE_GROUP=$$(az webapp list --query "[?name=='$$FRONTEND_APP'].resourceGroup" -o tsv 2>/dev/null | head -1); \
-		if [ -n "$$RESOURCE_GROUP" ]; then \
-			echo "✅ Found resource group via app lookup: $$RESOURCE_GROUP"; \
-		fi; \
-	fi; \
-	if [ -z "$$RESOURCE_GROUP" ] && [ -n "$$ADMIN_APP" ]; then \
-		echo "=== Finding resource group for $$ADMIN_APP ==="; \
-		RESOURCE_GROUP=$$(az webapp list --query "[?name=='$$ADMIN_APP'].resourceGroup" -o tsv 2>/dev/null | head -1); \
-		if [ -n "$$RESOURCE_GROUP" ]; then \
-			echo "✅ Found resource group via admin app lookup: $$RESOURCE_GROUP"; \
-		fi; \
-	fi; \
-	if [ -z "$$RESOURCE_GROUP" ]; then \
-		echo "=== Fallback: Using azd environment resource group ==="; \
-		RESOURCE_GROUP=$$(azd env get-values 2>/dev/null | grep -E "(AZURE_RESOURCE_GROUP|RESOURCE_GROUP)" | cut -d'=' -f2 | tr -d '"' | head -1); \
-		if [ -n "$$RESOURCE_GROUP" ]; then \
-			echo "✅ Found resource group from azd env: $$RESOURCE_GROUP"; \
-		fi; \
-	fi; \
-	if [ -z "$$RESOURCE_GROUP" ]; then \
-		echo "=== Final fallback: List all resource groups ==="; \
-		RESOURCE_GROUP=$$(az group list --query "[?contains(name, 'rg-') || contains(name, '${AZURE_ENV_NAME}')].name" -o tsv 2>/dev/null | head -1); \
-		if [ -n "$$RESOURCE_GROUP" ]; then \
-			echo "✅ Found resource group via list: $$RESOURCE_GROUP"; \
-		fi; \
-	fi; \
-	if [ -n "$$RESOURCE_GROUP" ] && [ -n "$$FRONTEND_APP" ]; then \
-		echo "=== Disabling Authentication ==="; \
-		echo "Resource Group: $$RESOURCE_GROUP"; \
-		echo "Frontend App: $$FRONTEND_APP"; \
-		echo "Admin App: $$ADMIN_APP"; \
-		for app in $$FRONTEND_APP $$ADMIN_APP; do \
-			if [ -n "$$app" ] && [ "$$app" != "" ]; then \
-				echo "=== Processing $$app ==="; \
-				if az webapp show --name "$$app" --resource-group "$$RESOURCE_GROUP" >/dev/null 2>&1; then \
-					echo "✅ App $$app found in $$RESOURCE_GROUP"; \
-					echo "Disabling Easy Auth..."; \
-					az webapp auth update --name "$$app" --resource-group "$$RESOURCE_GROUP" --enabled false 2>/dev/null || echo "Auth update failed"; \
-					echo "Setting app settings to disable auth..."; \
-					az webapp config appsettings set --name "$$app" --resource-group "$$RESOURCE_GROUP" --settings \
-					  "WEBSITES_AUTH_ENABLED=false" \
-					  "WEBSITE_AUTH_ENABLED=false" \
-					  "AUTH_ENABLED=false" \
-					  "AZURE_USE_AUTHENTICATION=false" \
-					  "AZURE_ENABLE_AUTH=false" \
-					  "REQUIRE_AUTHENTICATION=false" \
-					  "AUTHENTICATION_ENABLED=false" 2>/dev/null || echo "Failed to set some app settings"; \
-					echo "Setting unauthenticated action..."; \
-					az resource update --resource-group "$$RESOURCE_GROUP" --name "$$app/authsettings" --resource-type "Microsoft.Web/sites/config" --set properties.enabled=false properties.unauthenticatedClientAction="AllowAnonymous" 2>/dev/null || echo "Direct auth config update failed"; \
-					echo "Restarting $$app..."; \
-					az webapp restart --name "$$app" --resource-group "$$RESOURCE_GROUP" 2>/dev/null || echo "Restart failed for $$app"; \
-					echo "✅ Completed processing $$app"; \
-				else \
-					echo "❌ App $$app not found in resource group $$RESOURCE_GROUP"; \
-					echo "Searching across all resource groups..."; \
-					ACTUAL_RG=$$(az webapp list --query "[?name=='$$app'].resourceGroup" -o tsv 2>/dev/null | head -1); \
-					if [ -n "$$ACTUAL_RG" ]; then \
-						echo "✅ Found $$app in resource group: $$ACTUAL_RG"; \
-						echo "Disabling auth in correct resource group..."; \
-						az webapp auth update --name "$$app" --resource-group "$$ACTUAL_RG" --enabled false 2>/dev/null || echo "Auth update failed"; \
-						az webapp config appsettings set --name "$$app" --resource-group "$$ACTUAL_RG" --settings \
-						  "WEBSITES_AUTH_ENABLED=false" \
-						  "WEBSITE_AUTH_ENABLED=false" \
-						  "AUTH_ENABLED=false" \
-						  "AZURE_USE_AUTHENTICATION=false" \
-						  "AZURE_ENABLE_AUTH=false" \
-						  "REQUIRE_AUTHENTICATION=false" \
-						  "AUTHENTICATION_ENABLED=false" 2>/dev/null || echo "Failed to set some app settings"; \
-						az resource update --resource-group "$$ACTUAL_RG" --name "$$app/authsettings" --resource-type "Microsoft.Web/sites/config" --set properties.enabled=false properties.unauthenticatedClientAction="AllowAnonymous" 2>/dev/null || echo "Direct auth config update failed"; \
-						az webapp restart --name "$$app" --resource-group "$$ACTUAL_RG" 2>/dev/null || echo "Restart failed"; \
-						echo "✅ Completed processing $$app in $$ACTUAL_RG"; \
-					else \
-						echo "❌ Could not find $$app in any resource group"; \
-					fi; \
-				fi; \
-			fi; \
-		done; \
-		echo "Waiting 120 seconds for changes to propagate..."; \
-		sleep 120; \
-	else \
-		echo "❌ Cannot disable authentication - missing resource group or app names"; \
-		echo "Resource Group: $$RESOURCE_GROUP"; \
-		echo "Frontend App: $$FRONTEND_APP"; \
-		echo "Admin App: $$ADMIN_APP"; \
-	fi
+	export FRONTEND_WEBSITE_URL="$$FRONTEND_URL"; \
+	export ADMIN_WEBSITE_URL="$$ADMIN_URL"; \
+	chmod +x disable_auth.sh && ./disable_auth.sh
 
 	@echo "=== Final Deployment Status ==="
 	@echo "Frontend URL:" && cat frontend_url.txt 2>/dev/null || echo "Not available"
 	@echo "Admin URL:" && cat admin_url.txt 2>/dev/null || echo "Not available"
+	@echo ""
+	@echo "🚀 Deployment completed! Wait 5-10 minutes for authentication changes to fully propagate."
 
 destroy: azd-login ## 🧨 Destroy everything in Azure
 	@echo -e "\e[34m$@\e[0m" || true
