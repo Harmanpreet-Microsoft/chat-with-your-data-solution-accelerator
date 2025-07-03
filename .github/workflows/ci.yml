@@ -429,8 +429,8 @@ jobs:
                       # Run the enhanced script
                       ./disable_auth_enhanced.sh
 
-            - name: Final Status Check
-              run: |
+      - name: Final Status Check
+        run: |
                       echo "=== Final Deployment Status ==="
                       echo "Frontend URL: ${{ env.FRONTEND_WEBSITE_URL }}"
                       echo "Admin URL: ${{ env.ADMIN_WEBSITE_URL }}"
@@ -443,11 +443,11 @@ jobs:
                       echo "   Frontend: ${{ env.FRONTEND_WEBSITE_URL }}"
                       echo "   Admin: ${{ env.ADMIN_WEBSITE_URL }}"
 
-            - name: Wait for 30 minutes
-              run: sleep 1800
+      - name: Wait for 10 minutes
+        run: sleep 600
 
-            - name: Verify Deployment Health
-              run: |
+      - name: Verify Deployment Health
+        run: |
                   echo "=== Final Deployment Health Check ==="
 
                   # Wait additional time for services to be fully ready
