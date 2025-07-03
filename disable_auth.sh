@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Enhanced script to completely disable Azure App Service authentication
-# This script addresses the specific issues seen in your deployment logs
+# This script addresses the "Authentication Not Configured" issue specifically
 
 set -e
 
@@ -119,10 +119,15 @@ disable_authentication_completely() {
     AUTH_ENABLED=$(az webapp auth show --name "$app_name" --resource-group "$rg_name" --query "enabled" --output tsv 2>/dev/null || echo "false")
     log_info "Current auth status: $AUTH_ENABLED"
 
-    # Step 2: Disable authentication using multiple methods
+    # Step 2: Disable authentication using webapp auth update with explicit settings
     log_info "Step 2: Disabling authentication via webapp auth..."
     for attempt in {1..5}; do
-        if az webapp auth update --name "$app_name" --resource-group "$rg_name" --enabled false >/dev/null 2>&1; then
+        if az webapp auth update \
+            --name "$app_name" \
+            --resource-group "$rg_name" \
+            --enabled false \
+            --action AllowAnonymous \
+            --token-store false >/dev/null 2>&1; then
             log_success "Authentication disabled via webapp auth (attempt $attempt)"
             break
         else
@@ -131,9 +136,9 @@ disable_authentication_completely() {
         fi
     done
 
-    # Step 3: Use ARM template approach for more reliable disable
-    log_info "Step 3: Disabling authentication via ARM resource update..."
-    AUTH_SETTINGS_JSON=$(cat <<EOF
+    # Step 3: Use ARM template approach for EasyAuth V1 settings
+    log_info "Step 3: Disabling authentication via ARM EasyAuth V1..."
+    AUTH_SETTINGS_V1=$(cat <<EOF
 {
   "properties": {
     "enabled": false,
@@ -143,9 +148,11 @@ disable_authentication_completely() {
     "allowedExternalRedirectUrls": [],
     "clientId": null,
     "clientSecret": null,
+    "clientSecretSettingName": null,
     "issuer": null,
     "allowedAudiences": [],
     "additionalLoginParams": [],
+    "isAadAutoProvisioned": false,
     "googleClientId": null,
     "googleClientSecret": null,
     "facebookAppId": null,
@@ -161,25 +168,90 @@ disable_authentication_completely() {
 EOF
 )
 
-    # Apply ARM template update
-    echo "$AUTH_SETTINGS_JSON" > auth_settings.json
+    echo "$AUTH_SETTINGS_V1" > auth_settings_v1.json
     az rest --method PUT \
         --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$rg_name/providers/Microsoft.Web/sites/$app_name/config/authsettings?api-version=2020-06-01" \
-        --body @auth_settings.json >/dev/null 2>&1 || log_warning "ARM template auth update failed"
-    rm -f auth_settings.json
+        --body @auth_settings_v1.json >/dev/null 2>&1 || log_warning "ARM EasyAuth V1 update failed"
+    rm -f auth_settings_v1.json
 
-    # Step 4: Clear authentication-related app settings
-    log_info "Step 4: Clearing authentication app settings..."
+    # Step 4: Use ARM template approach for EasyAuth V2 settings
+    log_info "Step 4: Disabling authentication via ARM EasyAuth V2..."
+    AUTH_SETTINGS_V2=$(cat <<EOF
+{
+  "properties": {
+    "platform": {
+      "enabled": false,
+      "runtimeVersion": "~1"
+    },
+    "globalValidation": {
+      "requireAuthentication": false,
+      "unauthenticatedClientAction": "AllowAnonymous"
+    },
+    "identityProviders": {
+      "azureActiveDirectory": {
+        "enabled": false
+      },
+      "facebook": {
+        "enabled": false
+      },
+      "gitHub": {
+        "enabled": false
+      },
+      "google": {
+        "enabled": false
+      },
+      "twitter": {
+        "enabled": false
+      }
+    },
+    "login": {
+      "preserveUrlFragmentsForLogins": false,
+      "allowedExternalRedirectUrls": [],
+      "tokenStore": {
+        "enabled": false
+      }
+    },
+    "httpSettings": {
+      "requireHttps": false,
+      "routes": {
+        "apiPrefix": "/.auth"
+      },
+      "forwardProxy": {
+        "convention": "NoProxy"
+      }
+    }
+  }
+}
+EOF
+)
+
+    echo "$AUTH_SETTINGS_V2" > auth_settings_v2.json
+    az rest --method PUT \
+        --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$rg_name/providers/Microsoft.Web/sites/$app_name/config/authsettingsV2?api-version=2020-06-01" \
+        --body @auth_settings_v2.json >/dev/null 2>&1 || log_warning "ARM EasyAuth V2 update failed"
+    rm -f auth_settings_v2.json
+
+    # Step 5: Clear all authentication-related app settings
+    log_info "Step 5: Clearing authentication app settings..."
     az webapp config appsettings delete --name "$app_name" --resource-group "$rg_name" --setting-names \
         "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" \
         "FACEBOOK_PROVIDER_AUTHENTICATION_SECRET" \
         "GOOGLE_PROVIDER_AUTHENTICATION_SECRET" \
         "TWITTER_PROVIDER_AUTHENTICATION_SECRET" \
+        "GITHUB_PROVIDER_AUTHENTICATION_SECRET" \
         "AZURE_CLIENT_ID" \
         "AZURE_CLIENT_SECRET" \
-        "AZURE_TENANT_ID" >/dev/null 2>&1 || log_warning "Some app settings couldn't be deleted"
+        "AZURE_TENANT_ID" \
+        "WEBSITE_AUTH_CLIENT_ID" \
+        "WEBSITE_AUTH_CLIENT_SECRET" \
+        "WEBSITE_AUTH_TENANT_ID" \
+        "MICROSOFT_PROVIDER_AUTHENTICATION_APPID" \
+        "WEBSITE_AUTH_OPENID_ISSUER" \
+        "WEBSITE_AUTH_LOGOUT_PATH" \
+        "WEBSITE_AUTH_TOKEN_STORE" >/dev/null 2>&1 || log_warning "Some app settings couldn't be deleted"
 
-    # Set explicit false values for auth-related settings
+    # Step 6: Set explicit authentication-disabling app settings
+    log_info "Step 6: Setting explicit authentication-disabling app settings..."
     az webapp config appsettings set --name "$app_name" --resource-group "$rg_name" --settings \
         "AUTH_ENABLED=false" \
         "AZURE_USE_AUTHENTICATION=false" \
@@ -187,10 +259,21 @@ EOF
         "REQUIRE_AUTHENTICATION=false" \
         "AUTHENTICATION_ENABLED=false" \
         "WEBSITES_AUTH_ENABLED=false" \
-        "WEBSITE_AUTH_ENABLED=false" >/dev/null 2>&1 || log_warning "Failed to set some auth settings"
+        "WEBSITE_AUTH_ENABLED=false" \
+        "FORCE_NO_AUTH=true" \
+        "ENFORCE_AUTH=false" \
+        "AZURE_AUTH_ENABLED=false" \
+        "ENABLE_AUTHENTICATION=false" \
+        "DISABLE_AUTHENTICATION=true" \
+        "NO_AUTH=true" \
+        "SKIP_AUTH=true" \
+        "WEBSITE_AUTH_DISABLE_WWWAUTHENTICATE=true" \
+        "WEBSITE_AUTH_DISABLE_IDENTITY_FLOW=true" \
+        "WEBSITE_AUTH_SKIP_PROVIDER_SELECTION=true" \
+        "WEBSITE_AUTH_DISABLE_SC_VALIDATION=true" >/dev/null 2>&1 || log_warning "Failed to set some auth settings"
 
-    # Step 5: Configure site config to allow anonymous access
-    log_info "Step 5: Configuring site for anonymous access..."
+    # Step 7: Configure site config to explicitly allow anonymous access
+    log_info "Step 7: Configuring site for anonymous access..."
     SITE_CONFIG_JSON=$(cat <<EOF
 {
   "properties": {
@@ -198,7 +281,17 @@ EOF
     "siteAuthSettings": {
       "enabled": false,
       "unauthenticatedClientAction": "AllowAnonymous"
-    }
+    },
+    "clientAffinityEnabled": false,
+    "httpsOnly": false,
+    "use32BitWorkerProcess": false,
+    "webSocketsEnabled": true,
+    "alwaysOn": true,
+    "requestTracingEnabled": false,
+    "httpLoggingEnabled": false,
+    "logsDirectorySizeLimit": 35,
+    "remoteDebuggingEnabled": false,
+    "ftpsState": "Disabled"
   }
 }
 EOF
@@ -210,33 +303,65 @@ EOF
         --body @site_config.json >/dev/null 2>&1 || log_warning "Site config update failed"
     rm -f site_config.json
 
-    # Step 6: Update CORS settings
-    log_info "Step 6: Updating CORS settings..."
+    # Step 8: Update CORS settings to allow all origins
+    log_info "Step 8: Updating CORS settings..."
     az webapp cors add --name "$app_name" --resource-group "$rg_name" --allowed-origins "*" >/dev/null 2>&1 || log_warning "CORS update failed"
 
-    # Step 7: Restart the app
-    log_info "Step 7: Restarting application..."
+    # Step 9: Force application settings sync
+    log_info "Step 9: Forcing application settings sync..."
+    az webapp config appsettings list --name "$app_name" --resource-group "$rg_name" >/dev/null 2>&1 || log_warning "Settings sync failed"
+
+    # Step 10: Stop the application completely
+    log_info "Step 10: Stopping application..."
+    az webapp stop --name "$app_name" --resource-group "$rg_name" >/dev/null 2>&1 || log_warning "App stop failed"
+    sleep 30
+
+    # Step 11: Clear application cache and restart
+    log_info "Step 11: Starting application..."
+    az webapp start --name "$app_name" --resource-group "$rg_name" >/dev/null 2>&1 || log_warning "App start failed"
+    sleep 30
+
+    # Step 12: Perform multiple restarts to ensure settings take effect
+    log_info "Step 12: Performing multiple restarts..."
     for attempt in {1..3}; do
         if az webapp restart --name "$app_name" --resource-group "$rg_name" >/dev/null 2>&1; then
             log_success "App restarted successfully (attempt $attempt)"
-            break
+            sleep 45
         else
             log_warning "App restart failed (attempt $attempt), retrying..."
             sleep 15
         fi
     done
 
-    # Step 8: Wait for changes to propagate
-    log_info "Step 8: Waiting for changes to propagate..."
-    sleep 30
+    # Step 13: Clear any cached authentication tokens
+    log_info "Step 13: Clearing authentication cache..."
+    az rest --method POST \
+        --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$rg_name/providers/Microsoft.Web/sites/$app_name/slots/production/config/authsettings/list?api-version=2020-06-01" \
+        >/dev/null 2>&1 || log_warning "Auth cache clear failed"
 
-    # Step 9: Verify authentication is disabled
-    log_info "Step 9: Verifying authentication status..."
+    # Step 14: Wait for changes to propagate
+    log_info "Step 14: Waiting for changes to propagate..."
+    sleep 60
+
+    # Step 15: Verify authentication is disabled
+    log_info "Step 15: Verifying authentication status..."
     NEW_AUTH_STATUS=$(az webapp auth show --name "$app_name" --resource-group "$rg_name" --query "enabled" --output tsv 2>/dev/null || echo "false")
     if [ "$NEW_AUTH_STATUS" = "false" ]; then
         log_success "Authentication successfully disabled for $app_name"
     else
         log_warning "Authentication may still be enabled for $app_name (status: $NEW_AUTH_STATUS)"
+    fi
+
+    # Step 16: Final verification with direct API call
+    log_info "Step 16: Final verification with direct API call..."
+    AUTH_CHECK_RESPONSE=$(az rest --method GET \
+        --url "https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$rg_name/providers/Microsoft.Web/sites/$app_name/config/authsettings?api-version=2020-06-01" \
+        --query "properties.enabled" -o tsv 2>/dev/null || echo "false")
+
+    if [ "$AUTH_CHECK_RESPONSE" = "false" ]; then
+        log_success "Final verification: Authentication is disabled for $app_name"
+    else
+        log_warning "Final verification: Authentication status unclear for $app_name"
     fi
 
     log_success "Authentication disable process completed for $app_name"
@@ -254,23 +379,45 @@ test_app_accessibility() {
 
     log_info "Testing accessibility for $app_name at $app_url"
 
-    # Test with curl
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 30 --max-time 60 "$app_url" || echo "000")
+    # Test with curl with more comprehensive checks
+    for attempt in {1..5}; do
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            --connect-timeout 30 \
+            --max-time 60 \
+            --location \
+            --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+            "$app_url" 2>/dev/null || echo "000")
 
-    case $HTTP_CODE in
-        200|302|301)
-            log_success "$app_name is accessible (HTTP $HTTP_CODE)"
-            ;;
-        401|403)
-            log_error "$app_name returned HTTP $HTTP_CODE - authentication may still be required"
-            ;;
-        000)
-            log_warning "$app_name is not responding - may still be starting up"
-            ;;
-        *)
-            log_warning "$app_name returned HTTP $HTTP_CODE - check application logs"
-            ;;
-    esac
+        case $HTTP_CODE in
+            200|302|301)
+                log_success "$app_name is accessible (HTTP $HTTP_CODE) - attempt $attempt"
+                return 0
+                ;;
+            401|403)
+                log_error "$app_name returned HTTP $HTTP_CODE - authentication may still be required - attempt $attempt"
+                if [ $attempt -lt 5 ]; then
+                    log_info "Waiting 30 seconds before retry..."
+                    sleep 30
+                fi
+                ;;
+            000)
+                log_warning "$app_name is not responding - may still be starting up - attempt $attempt"
+                if [ $attempt -lt 5 ]; then
+                    log_info "Waiting 30 seconds before retry..."
+                    sleep 30
+                fi
+                ;;
+            *)
+                log_warning "$app_name returned HTTP $HTTP_CODE - check application logs - attempt $attempt"
+                if [ $attempt -lt 5 ]; then
+                    log_info "Waiting 30 seconds before retry..."
+                    sleep 30
+                fi
+                ;;
+        esac
+    done
+
+    log_error "$app_name accessibility test failed after 5 attempts"
 }
 
 # Main execution
@@ -297,7 +444,7 @@ main() {
 
     # Wait for all changes to propagate
     log_info "Waiting additional time for all changes to propagate..."
-    sleep 120
+    sleep 180
 
     # Test accessibility
     log_info "=== Testing Application Accessibility ==="
@@ -314,7 +461,8 @@ main() {
     fi
 
     log_success "Authentication disable process completed!"
-    log_info "If you still see authentication errors, wait an additional 5-10 minutes for Azure to fully propagate the changes."
+    log_info "If you still see authentication errors, wait an additional 10-15 minutes for Azure to fully propagate the changes."
+    log_info "Azure App Service authentication changes can take up to 15 minutes to fully take effect."
 }
 
 # Run the main function

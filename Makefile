@@ -66,7 +66,7 @@ deploy: azd-login ## Deploy everything to Azure
 	@echo -e "\e[34m$@\e[0m" || true
 	@azd env new ${AZURE_ENV_NAME}
 
-	# Set environment variables to disable auth
+	# Set environment variables to disable auth (corrected values)
 	@azd env set AUTH_ENABLED false --no-prompt
 	@azd env set AZURE_USE_AUTHENTICATION false --no-prompt
 	@azd env set AZURE_ENABLE_AUTH false --no-prompt
@@ -74,6 +74,15 @@ deploy: azd-login ## Deploy everything to Azure
 	@azd env set AUTHENTICATION_ENABLED false --no-prompt
 	@azd env set WEBSITES_AUTH_ENABLED false --no-prompt
 	@azd env set WEBSITE_AUTH_ENABLED false --no-prompt
+	@azd env set FORCE_NO_AUTH true --no-prompt
+	@azd env set ENFORCE_AUTH false --no-prompt
+
+	# Additional auth-related environment variables
+	@azd env set AZURE_AUTH_ENABLED false --no-prompt
+	@azd env set ENABLE_AUTHENTICATION false --no-prompt
+	@azd env set DISABLE_AUTHENTICATION true --no-prompt
+	@azd env set NO_AUTH true --no-prompt
+	@azd env set SKIP_AUTH true --no-prompt
 
 	# Provision and deploy
 	@azd provision --no-prompt
