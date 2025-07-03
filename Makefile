@@ -66,23 +66,8 @@ deploy: azd-login ## Deploy everything to Azure
 	@echo -e "\e[34m$@\e[0m" || true
 	@azd env new ${AZURE_ENV_NAME}
 
-	# Set environment variables to disable auth (corrected values)
-	@azd env set AUTH_ENABLED false --no-prompt
-	@azd env set AZURE_USE_AUTHENTICATION false --no-prompt
-	@azd env set AZURE_ENABLE_AUTH false --no-prompt
-	@azd env set REQUIRE_AUTHENTICATION false --no-prompt
-	@azd env set AUTHENTICATION_ENABLED false --no-prompt
-	@azd env set WEBSITES_AUTH_ENABLED false --no-prompt
-	@azd env set WEBSITE_AUTH_ENABLED false --no-prompt
-	@azd env set FORCE_NO_AUTH true --no-prompt
-	@azd env set ENFORCE_AUTH false --no-prompt
-
-	# Additional auth-related environment variables
-	@azd env set AZURE_AUTH_ENABLED false --no-prompt
-	@azd env set ENABLE_AUTHENTICATION false --no-prompt
-	@azd env set DISABLE_AUTHENTICATION true --no-prompt
-	@azd env set NO_AUTH true --no-prompt
-	@azd env set SKIP_AUTH true --no-prompt
+	# Note: Removed azd env set commands as they don't affect App Service settings
+	# The authentication disable will be handled post-deployment via the enhanced script
 
 	# Provision and deploy
 	@azd provision --no-prompt
@@ -123,13 +108,49 @@ deploy: azd-login ## Deploy everything to Azure
 	ADMIN_URL=$$(cat admin_url.txt 2>/dev/null | tr -d '\n\r' | xargs); \
 	export FRONTEND_WEBSITE_URL="$$FRONTEND_URL"; \
 	export ADMIN_WEBSITE_URL="$$ADMIN_URL"; \
-	chmod +x disable_auth.sh && ./disable_auth.sh
+	if [ -f "disable_auth.sh" ]; then \
+		chmod +x disable_auth.sh && ./disable_auth.sh; \
+	else \
+		echo "WARNING: disable_auth.sh not found, authentication may still be enabled"; \
+	fi
 
 	@echo "=== Final Deployment Status ==="
 	@echo "Frontend URL:" && cat frontend_url.txt 2>/dev/null || echo "Not available"
 	@echo "Admin URL:" && cat admin_url.txt 2>/dev/null || echo "Not available"
 	@echo ""
-	@echo "🚀 Deployment completed! Wait 5-10 minutes for authentication changes to fully propagate."
+	@echo "🚀 Deployment completed!"
+	@echo "⏰ Wait 15-20 minutes for authentication changes to fully propagate."
+	@echo "🔄 Azure authentication changes can take time to fully take effect."
+
+# Helper target to check current authentication status
+
+	@echo "=== Checking Authentication Status ==="
+	@FRONTEND_URL=$$(cat frontend_url.txt 2>/dev/null | tr -d '\n\r' | xargs); \
+	ADMIN_URL=$$(cat admin_url.txt 2>/dev/null | tr -d '\n\r' | xargs); \
+	if [ -n "$$FRONTEND_URL" ]; then \
+		echo "Testing Frontend: $$FRONTEND_URL"; \
+		HTTP_CODE=$$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 "$$FRONTEND_URL" 2>/dev/null || echo "000"); \
+		echo "Frontend HTTP Status: $$HTTP_CODE"; \
+	fi; \
+	if [ -n "$$ADMIN_URL" ]; then \
+		echo "Testing Admin: $$ADMIN_URL"; \
+		HTTP_CODE=$$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 "$$ADMIN_URL" 2>/dev/null || echo "000"); \
+		echo "Admin HTTP Status: $$HTTP_CODE"; \
+	fi
+
+# Helper target to force authentication disable
+
+	@echo "=== Force Disabling Authentication ==="
+	@FRONTEND_URL=$$(cat frontend_url.txt 2>/dev/null | tr -d '\n\r' | xargs); \
+	ADMIN_URL=$$(cat admin_url.txt 2>/dev/null | tr -d '\n\r' | xargs); \
+	export FRONTEND_WEBSITE_URL="$$FRONTEND_URL"; \
+	export ADMIN_WEBSITE_URL="$$ADMIN_URL"; \
+	if [ -f "disable_auth.sh" ]; then \
+		chmod +x disable_auth.sh && ./disable_auth.sh; \
+	else \
+		echo "ERROR: disable_auth.sh not found"; \
+		exit 1; \
+	fi
 
 destroy: azd-login ## 🧨 Destroy everything in Azure
 	@echo -e "\e[34m$@\e[0m" || true
