@@ -100,53 +100,57 @@ jobs:
       - name: Pre-build image and deploy
         uses: devcontainers/ci@v0.3
         env:
-           AZURE_ENV_NAME: ${{ github.run_id }}
-           AZURE_LOCATION: ${{ env.AZURE_LOCATION }}
+                AZURE_ENV_NAME: ${{ github.run_id }}
+                AZURE_LOCATION: ${{ env.AZURE_LOCATION }}
         with:
-                imageName: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
-                cacheFrom: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
-                imageTag: ${{ env.imageTag }}
-                runCmd: |
-                  export optional_args="./code/tests"
+                      imageName: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
+                      cacheFrom: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
+                      imageTag: ${{ env.imageTag }}
+                      runCmd: |
+                        export optional_args="./code/tests"
 
-                  # Capture deployment output to a log file
-                  make ci 2>&1 | tee ci_output.log
-                  make deploy 2>&1 | tee deploy_output.log
+                        # Azure login first
+                        az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+                        az account set --subscription $AZURE_SUBSCRIPTION_ID
 
-                  # Try to extract URLs from deployment logs as backup
-                  echo "=== Extracting URLs from deployment logs ==="
-                  grep -oE "https://[a-zA-Z0-9.-]*\.azurewebsites\.net/" deploy_output.log | head -2 | tee extracted_urls.txt || echo "No URLs found in logs"
+                        # Capture deployment output to a log file
+                        make ci 2>&1 | tee ci_output.log
+                        make deploy 2>&1 | tee deploy_output.log
 
-                  # Check if we have admin URL in logs
-                  grep -E "Done: Deploying service adminweb" -A 2 deploy_output.log | grep -oE "https://[a-zA-Z0-9.-]*\.azurewebsites\.net/" > log_admin_url.txt || echo "" > log_admin_url.txt
+                        # Try to extract URLs from deployment logs as backup
+                        echo "=== Extracting URLs from deployment logs ==="
+                        grep -oE "https://[a-zA-Z0-9.-]*\.azurewebsites\.net/" deploy_output.log | head -2 | tee extracted_urls.txt || echo "No URLs found in logs"
 
-                  # Check if we have web URL in logs
-                  grep -E "Done: Deploying service web" -A 2 deploy_output.log | grep -oE "https://[a-zA-Z0-9.-]*\.azurewebsites\.net/" > log_frontend_url.txt || echo "" > log_frontend_url.txt
+                        # Check if we have admin URL in logs
+                        grep -E "Done: Deploying service adminweb" -A 2 deploy_output.log | grep -oE "https://[a-zA-Z0-9.-]*\.azurewebsites\.net/" > log_admin_url.txt || echo "" > log_admin_url.txt
 
-                  echo "URLs from logs:"
-                  echo "Admin URL from logs: $(cat log_admin_url.txt)"
-                  echo "Frontend URL from logs: $(cat log_frontend_url.txt)"
-                env: |
-                  AZURE_CLIENT_ID
-                  AZURE_CLIENT_SECRET
-                  AZURE_TENANT_ID
-                  AZURE_SUBSCRIPTION_ID
-                  AZURE_ENV_NAME
-                  AZURE_LOCATION
-                  AUTH_ENABLED=false
-                  AZURE_USE_AUTHENTICATION=false
-                  AZURE_ENABLE_AUTH=false
-                  FORCE_NO_AUTH=true
-                  ENFORCE_AUTH=false
-                  REQUIRE_AUTHENTICATION=false
-                  AUTHENTICATION_ENABLED=false
-                  WEBSITES_AUTH_ENABLED=false
-                  WEBSITE_AUTH_ENABLED=false
-                  AZURE_AUTH_ENABLED=false
-                  ENABLE_AUTHENTICATION=false
-                  DISABLE_AUTHENTICATION=true
-                  NO_AUTH=true
-                  SKIP_AUTH=true
+                        # Check if we have web URL in logs
+                        grep -E "Done: Deploying service web" -A 2 deploy_output.log | grep -oE "https://[a-zA-Z0-9.-]*\.azurewebsites\.net/" > log_frontend_url.txt || echo "" > log_frontend_url.txt
+
+                        echo "URLs from logs:"
+                        echo "Admin URL from logs: $(cat log_admin_url.txt)"
+                        echo "Frontend URL from logs: $(cat log_frontend_url.txt)"
+                      env: |
+                        AZURE_CLIENT_ID
+                        AZURE_CLIENT_SECRET
+                        AZURE_TENANT_ID
+                        AZURE_SUBSCRIPTION_ID
+                        AZURE_ENV_NAME
+                        AZURE_LOCATION
+                        AUTH_ENABLED=false
+                        AZURE_USE_AUTHENTICATION=false
+                        AZURE_ENABLE_AUTH=false
+                        FORCE_NO_AUTH=true
+                        ENFORCE_AUTH=false
+                        REQUIRE_AUTHENTICATION=false
+                        AUTHENTICATION_ENABLED=false
+                        WEBSITES_AUTH_ENABLED=false
+                        WEBSITE_AUTH_ENABLED=false
+                        AZURE_AUTH_ENABLED=false
+                        ENABLE_AUTHENTICATION=false
+                        DISABLE_AUTHENTICATION=true
+                        NO_AUTH=true
+                        SKIP_AUTH=true
 
       - name: Extract URLs from deployment
         id: extract-urls
@@ -211,94 +215,49 @@ jobs:
                 echo "Frontend URL: ${{ env.FRONTEND_WEBSITE_URL }}"
                 echo "Admin URL: ${{ env.ADMIN_WEBSITE_URL }}"
 
-      - name: Configure App Services for Testing (Enhanced v3)
+      - name: Configure App Services for Testing (Fixed Authentication Disable)
         run: |
-                      # Create the enhanced authentication disable script
-                      cat > disable_auth_enhanced.sh << 'EOF'
-                      #!/bin/bash
-                      set -e
+                      # Azure login with proper credentials
+                      az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
+                      az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-                      # Colors for output
-                      RED='\033[0;31m'
-                      GREEN='\033[0;32m'
-                      YELLOW='\033[1;33m'
-                      BLUE='\033[0;34m'
-                      NC='\033[0m'
-
-                      log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
-                      log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
-                      log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
-                      log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
-
-                      # Extract app information
+                      # Extract app names from URLs
                       FRONTEND_APP=""
                       ADMIN_APP=""
                       RESOURCE_GROUP=""
 
-                      if [ -n "$FRONTEND_WEBSITE_URL" ]; then
-                          FRONTEND_APP=$(echo "$FRONTEND_WEBSITE_URL" | sed 's|https://||;s|\.azurewebsites\.net.*||')
-                          log_success "Frontend app: $FRONTEND_APP"
+                      if [ -n "${{ env.FRONTEND_WEBSITE_URL }}" ]; then
+                          FRONTEND_APP=$(echo "${{ env.FRONTEND_WEBSITE_URL }}" | sed 's|https://||;s|\.azurewebsites\.net.*||')
+                          echo "Frontend app: $FRONTEND_APP"
                       fi
 
-                      if [ -n "$ADMIN_WEBSITE_URL" ]; then
-                          ADMIN_APP=$(echo "$ADMIN_WEBSITE_URL" | sed 's|https://||;s|\.azurewebsites\.net.*||')
-                          log_success "Admin app: $ADMIN_APP"
+                      if [ -n "${{ env.ADMIN_WEBSITE_URL }}" ]; then
+                          ADMIN_APP=$(echo "${{ env.ADMIN_WEBSITE_URL }}" | sed 's|https://||;s|\.azurewebsites\.net.*||')
+                          echo "Admin app: $ADMIN_APP"
                       fi
 
                       # Find resource group
                       if [ -n "$FRONTEND_APP" ]; then
                           RESOURCE_GROUP=$(az webapp list --query "[?name=='$FRONTEND_APP'].resourceGroup" -o tsv | head -1)
-                          log_success "Resource group: $RESOURCE_GROUP"
+                          echo "Resource group: $RESOURCE_GROUP"
                       fi
 
-                      disable_auth_completely() {
+                      # Function to disable authentication and set app settings
+                      disable_auth_and_set_settings() {
                           local app_name=$1
                           local rg_name=$2
 
-                          log_info "=== Disabling Authentication for $app_name ==="
+                          echo "=== Configuring $app_name ==="
 
-                          # Step 1: Disable via webapp auth
-                          log_info "Disabling webapp auth..."
-                          for i in {1..5}; do
-                              if az webapp auth update --name "$app_name" --resource-group "$rg_name" --enabled false >/dev/null 2>&1; then
-                                  log_success "Webapp auth disabled (attempt $i)"
-                                  break
-                              else
-                                  log_warning "Webapp auth disable failed (attempt $i), retrying..."
-                                  sleep 10
-                              fi
-                          done
+                          # Step 1: Disable authentication
+                          echo "Disabling authentication..."
+                          az webapp auth update --name "$app_name" --resource-group "$rg_name" --enabled false --action AllowAnonymous || true
 
-                          # Step 2: ARM template approach
-                          log_info "Applying ARM template auth settings..."
-                          AUTH_JSON='{
-                            "properties": {
-                              "enabled": false,
-                              "unauthenticatedClientAction": "AllowAnonymous",
-                              "defaultProvider": null,
-                              "tokenStoreEnabled": false,
-                              "clientId": null,
-                              "clientSecret": null,
-                              "issuer": null
-                            }
-                          }'
-
-                          echo "$AUTH_JSON" > auth_settings.json
-                          az rest --method PUT \
-                              --url "https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$rg_name/providers/Microsoft.Web/sites/$app_name/config/authsettings?api-version=2020-06-01" \
-                              --body @auth_settings.json >/dev/null 2>&1 || log_warning "ARM auth update failed"
-                          rm -f auth_settings.json
-
-                          # Step 3: Clear and set auth app settings with corrected values
-                          log_info "Clearing and setting auth app settings..."
-                          az webapp config appsettings delete --name "$app_name" --resource-group "$rg_name" --setting-names \
-                              "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET" \
-                              "AZURE_CLIENT_ID" \
-                              "AZURE_CLIENT_SECRET" \
-                              "AZURE_TENANT_ID" >/dev/null 2>&1 || true
-
-                          # Set comprehensive auth-disabling settings
+                          # Step 2: Set the critical app settings that your application checks
+                          echo "Setting authentication app settings..."
                           az webapp config appsettings set --name "$app_name" --resource-group "$rg_name" --settings \
+                              "FORCE_NO_AUTH=true" \
+                              "ENFORCE_AUTH=false" \
                               "AUTH_ENABLED=false" \
                               "AZURE_USE_AUTHENTICATION=false" \
                               "AZURE_ENABLE_AUTH=false" \
@@ -306,128 +265,49 @@ jobs:
                               "AUTHENTICATION_ENABLED=false" \
                               "WEBSITES_AUTH_ENABLED=false" \
                               "WEBSITE_AUTH_ENABLED=false" \
-                              "FORCE_NO_AUTH=true" \
-                              "ENFORCE_AUTH=false" \
                               "AZURE_AUTH_ENABLED=false" \
                               "ENABLE_AUTHENTICATION=false" \
                               "DISABLE_AUTHENTICATION=true" \
                               "NO_AUTH=true" \
-                              "SKIP_AUTH=true" >/dev/null 2>&1 || true
+                              "SKIP_AUTH=true"
 
-                          # Step 4: Update site configuration
-                          log_info "Updating site configuration..."
-                          SITE_CONFIG='{
-                            "properties": {
-                              "siteAuthEnabled": false,
-                              "siteAuthSettings": {
-                                "enabled": false,
-                                "unauthenticatedClientAction": "AllowAnonymous"
-                              }
-                            }
-                          }'
+                          # Step 3: Restart the app
+                          echo "Restarting $app_name..."
+                          az webapp restart --name "$app_name" --resource-group "$rg_name"
 
-                          echo "$SITE_CONFIG" > site_config.json
-                          az rest --method PATCH \
-                              --url "https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$rg_name/providers/Microsoft.Web/sites/$app_name/config/web?api-version=2020-06-01" \
-                              --body @site_config.json >/dev/null 2>&1 || log_warning "Site config update failed"
-                          rm -f site_config.json
+                          # Step 4: Verify the settings were applied
+                          echo "Verifying settings for $app_name..."
+                          FORCE_NO_AUTH_VALUE=$(az webapp config appsettings list --name "$app_name" --resource-group "$rg_name" --query "[?name=='FORCE_NO_AUTH'].value | [0]" -o tsv)
+                          ENFORCE_AUTH_VALUE=$(az webapp config appsettings list --name "$app_name" --resource-group "$rg_name" --query "[?name=='ENFORCE_AUTH'].value | [0]" -o tsv)
 
-                          # Step 5: Update CORS
-                          log_info "Updating CORS..."
-                          az webapp cors add --name "$app_name" --resource-group "$rg_name" --allowed-origins "*" >/dev/null 2>&1 || true
-
-                          # Step 6: Force update authentication settings via EasyAuth V2 API
-                          log_info "Updating EasyAuth V2 settings..."
-                          EASYAUTH_V2_CONFIG='{
-                            "properties": {
-                              "platform": {
-                                "enabled": false
-                              },
-                              "globalValidation": {
-                                "requireAuthentication": false,
-                                "unauthenticatedClientAction": "AllowAnonymous"
-                              }
-                            }
-                          }'
-
-                          echo "$EASYAUTH_V2_CONFIG" > easyauth_config.json
-                          az rest --method PUT \
-                              --url "https://management.azure.com/subscriptions/$AZURE_SUBSCRIPTION_ID/resourceGroups/$rg_name/providers/Microsoft.Web/sites/$app_name/config/authsettingsV2?api-version=2020-06-01" \
-                              --body @easyauth_config.json >/dev/null 2>&1 || log_warning "EasyAuth V2 update failed"
-                          rm -f easyauth_config.json
-
-                          # Step 7: Restart app multiple times to ensure changes take effect
-                          log_info "Restarting app multiple times..."
-                          for i in {1..3}; do
-                              if az webapp restart --name "$app_name" --resource-group "$rg_name" >/dev/null 2>&1; then
-                                  log_success "App restarted (attempt $i)"
-                                  sleep 30
-                              else
-                                  log_warning "Restart failed (attempt $i), retrying..."
-                                  sleep 15
-                              fi
-                          done
-
-                          # Step 8: Force stop and start for complete reset
-                          log_info "Performing stop/start cycle..."
-                          az webapp stop --name "$app_name" --resource-group "$rg_name" >/dev/null 2>&1 || true
-                          sleep 20
-                          az webapp start --name "$app_name" --resource-group "$rg_name" >/dev/null 2>&1 || true
-                          sleep 30
-
-                          log_success "Authentication disable completed for $app_name"
+                          echo "FORCE_NO_AUTH is set to: $FORCE_NO_AUTH_VALUE"
+                          echo "ENFORCE_AUTH is set to: $ENFORCE_AUTH_VALUE"
                       }
 
                       # Apply to both apps
                       if [ -n "$FRONTEND_APP" ] && [ -n "$RESOURCE_GROUP" ]; then
-                          disable_auth_completely "$FRONTEND_APP" "$RESOURCE_GROUP"
+                          disable_auth_and_set_settings "$FRONTEND_APP" "$RESOURCE_GROUP"
                       fi
 
                       if [ -n "$ADMIN_APP" ] && [ -n "$RESOURCE_GROUP" ]; then
-                          disable_auth_completely "$ADMIN_APP" "$RESOURCE_GROUP"
+                          disable_auth_and_set_settings "$ADMIN_APP" "$RESOURCE_GROUP"
                       fi
 
-                      # Wait for propagation
-                      log_info "Waiting 240 seconds for changes to propagate..."
-                      sleep 240
+                      # Wait for changes to propagate
+                      echo "Waiting 120 seconds for changes to propagate..."
+                      sleep 120
 
                       # Test accessibility
-                      log_info "=== Testing Accessibility ==="
-                      if [ -n "$FRONTEND_WEBSITE_URL" ]; then
-                          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 30 "$FRONTEND_WEBSITE_URL" || echo "000")
-                          if [[ "$HTTP_CODE" =~ ^(200|302|301)$ ]]; then
-                              log_success "Frontend accessible (HTTP $HTTP_CODE)"
-                          else
-                              log_error "Frontend returned HTTP $HTTP_CODE"
-                          fi
+                      echo "=== Testing Accessibility ==="
+                      if [ -n "${{ env.FRONTEND_WEBSITE_URL }}" ]; then
+                          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 30 "${{ env.FRONTEND_WEBSITE_URL }}" || echo "000")
+                          echo "Frontend HTTP Status: $HTTP_CODE"
                       fi
 
-                      if [ -n "$ADMIN_WEBSITE_URL" ]; then
-                          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 30 "$ADMIN_WEBSITE_URL" || echo "000")
-                          if [[ "$HTTP_CODE" =~ ^(200|302|301)$ ]]; then
-                              log_success "Admin accessible (HTTP $HTTP_CODE)"
-                          else
-                              log_error "Admin returned HTTP $HTTP_CODE"
-                          fi
+                      if [ -n "${{ env.ADMIN_WEBSITE_URL }}" ]; then
+                          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 30 "${{ env.ADMIN_WEBSITE_URL }}" || echo "000")
+                          echo "Admin HTTP Status: $HTTP_CODE"
                       fi
-
-                      log_success "Enhanced authentication disable completed!"
-                      EOF
-
-                      # Make script executable and run it
-                      chmod +x disable_auth_enhanced.sh
-
-                      # Login to Azure
-                      az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
-                      az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-                      # Set environment variables and run the script
-                      export FRONTEND_WEBSITE_URL="${{ env.FRONTEND_WEBSITE_URL }}"
-                      export ADMIN_WEBSITE_URL="${{ env.ADMIN_WEBSITE_URL }}"
-                      export AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
-
-                      # Run the enhanced script
-                      ./disable_auth_enhanced.sh
 
       - name: Final Status Check
         run: |
@@ -443,9 +323,8 @@ jobs:
                       echo "   Frontend: ${{ env.FRONTEND_WEBSITE_URL }}"
                       echo "   Admin: ${{ env.ADMIN_WEBSITE_URL }}"
 
-      - name: Wait for 10 minutes
-        run: sleep 600
-
+      - name: Wait for 5 minutes for propagation
+        run: sleep 300
       - name: Verify Deployment Health
         run: |
                   echo "=== Final Deployment Health Check ==="
