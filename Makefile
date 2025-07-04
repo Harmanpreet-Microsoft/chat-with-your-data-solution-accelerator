@@ -135,6 +135,14 @@ disable-auth-manual:
 		echo "ERROR: disable_auth.sh not found"; \
 		exit 1; \
 	fi
+disable-auth-fixed:
+	@echo "=== Using Fixed Authentication Disable Script ==="
+	@if [ -f "disable_auth_fixed.sh" ]; then \
+		chmod +x disable_auth_fixed.sh && ./disable_auth_fixed.sh; \
+	else \
+		echo "ERROR: disable_auth_fixed.sh not found"; \
+		exit 1; \
+	fi
 destroy: azd-login ## 🧨 Destroy everything in Azure
 	@echo -e "\e[34m$@\e[0m" || true
 	@azd down --force --purge --no-prompt
