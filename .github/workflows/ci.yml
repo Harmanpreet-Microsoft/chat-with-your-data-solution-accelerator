@@ -215,99 +215,17 @@ jobs:
                 echo "Frontend URL: ${{ env.FRONTEND_WEBSITE_URL }}"
                 echo "Admin URL: ${{ env.ADMIN_WEBSITE_URL }}"
 
-      - name: Configure App Services for Testing (Fixed Authentication Disable)
+      - name: Disable Authentication with Script
         run: |
-                      # Azure login with proper credentials
-                      az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
-                      az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-                      # Extract app names from URLs
-                      FRONTEND_APP=""
-                      ADMIN_APP=""
-                      RESOURCE_GROUP=""
-
-                      if [ -n "${{ env.FRONTEND_WEBSITE_URL }}" ]; then
-                          FRONTEND_APP=$(echo "${{ env.FRONTEND_WEBSITE_URL }}" | sed 's|https://||;s|\.azurewebsites\.net.*||')
-                          echo "Frontend app: $FRONTEND_APP"
-                      fi
-
-                      if [ -n "${{ env.ADMIN_WEBSITE_URL }}" ]; then
-                          ADMIN_APP=$(echo "${{ env.ADMIN_WEBSITE_URL }}" | sed 's|https://||;s|\.azurewebsites\.net.*||')
-                          echo "Admin app: $ADMIN_APP"
-                      fi
-
-                      # Find resource group
-                      if [ -n "$FRONTEND_APP" ]; then
-                          RESOURCE_GROUP=$(az webapp list --query "[?name=='$FRONTEND_APP'].resourceGroup" -o tsv | head -1)
-                          echo "Resource group: $RESOURCE_GROUP"
-                      fi
-
-                      # Function to disable authentication and set app settings
-                      disable_auth_and_set_settings() {
-                          local app_name=$1
-                          local rg_name=$2
-
-                          echo "=== Configuring $app_name ==="
-
-                          # Step 1: Disable authentication
-                          echo "Disabling authentication..."
-                          az webapp auth update --name "$app_name" --resource-group "$rg_name" --enabled false --action AllowAnonymous || true
-
-                          # Step 2: Set the critical app settings that your application checks
-                          echo "Setting authentication app settings..."
-                          az webapp config appsettings set --name "$app_name" --resource-group "$rg_name" --settings \
-                              "FORCE_NO_AUTH=true" \
-                              "ENFORCE_AUTH=false" \
-                              "AUTH_ENABLED=false" \
-                              "AZURE_USE_AUTHENTICATION=false" \
-                              "AZURE_ENABLE_AUTH=false" \
-                              "REQUIRE_AUTHENTICATION=false" \
-                              "AUTHENTICATION_ENABLED=false" \
-                              "WEBSITES_AUTH_ENABLED=false" \
-                              "WEBSITE_AUTH_ENABLED=false" \
-                              "AZURE_AUTH_ENABLED=false" \
-                              "ENABLE_AUTHENTICATION=false" \
-                              "DISABLE_AUTHENTICATION=true" \
-                              "NO_AUTH=true" \
-                              "SKIP_AUTH=true"
-
-                          # Step 3: Restart the app
-                          echo "Restarting $app_name..."
-                          az webapp restart --name "$app_name" --resource-group "$rg_name"
-
-                          # Step 4: Verify the settings were applied
-                          echo "Verifying settings for $app_name..."
-                          FORCE_NO_AUTH_VALUE=$(az webapp config appsettings list --name "$app_name" --resource-group "$rg_name" --query "[?name=='FORCE_NO_AUTH'].value | [0]" -o tsv)
-                          ENFORCE_AUTH_VALUE=$(az webapp config appsettings list --name "$app_name" --resource-group "$rg_name" --query "[?name=='ENFORCE_AUTH'].value | [0]" -o tsv)
-
-                          echo "FORCE_NO_AUTH is set to: $FORCE_NO_AUTH_VALUE"
-                          echo "ENFORCE_AUTH is set to: $ENFORCE_AUTH_VALUE"
-                      }
-
-                      # Apply to both apps
-                      if [ -n "$FRONTEND_APP" ] && [ -n "$RESOURCE_GROUP" ]; then
-                          disable_auth_and_set_settings "$FRONTEND_APP" "$RESOURCE_GROUP"
-                      fi
-
-                      if [ -n "$ADMIN_APP" ] && [ -n "$RESOURCE_GROUP" ]; then
-                          disable_auth_and_set_settings "$ADMIN_APP" "$RESOURCE_GROUP"
-                      fi
-
-                      # Wait for changes to propagate
-                      echo "Waiting 120 seconds for changes to propagate..."
-                      sleep 120
-
-                      # Test accessibility
-                      echo "=== Testing Accessibility ==="
-                      if [ -n "${{ env.FRONTEND_WEBSITE_URL }}" ]; then
-                          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 30 "${{ env.FRONTEND_WEBSITE_URL }}" || echo "000")
-                          echo "Frontend HTTP Status: $HTTP_CODE"
-                      fi
-
-                      if [ -n "${{ env.ADMIN_WEBSITE_URL }}" ]; then
-                          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 30 "${{ env.ADMIN_WEBSITE_URL }}" || echo "000")
-                          echo "Admin HTTP Status: $HTTP_CODE"
-                      fi
+          chmod +x scripts/disable_auth.sh
+          ./scripts/disable_auth.sh
+        env:
+          FRONTEND_WEBSITE_URL: ${{ env.FRONTEND_WEBSITE_URL }}
+          ADMIN_WEBSITE_URL: ${{ env.ADMIN_WEBSITE_URL }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Final Status Check
         run: |
