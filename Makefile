@@ -104,6 +104,31 @@ deploy: azd-login ## Deploy everything to Azure
 	@echo "🚀 Deployment completed!"
 	@echo "⏰ Authentication will be disabled via GitHub Actions pipeline."
 	@echo "🔄 Check the pipeline logs for authentication disable status."
+		@echo "=== Extracting PostgreSQL connection values ==="
+
+	# Extract from .env or azd environment output
+	@echo "${PG_USERNAME}" > pg_username.txt
+	@echo "${PG_PASSWORD}" > pg_password.txt
+	@echo "${PG_DATABASE}" > pg_database.txt
+	@echo "${PG_PORT:-5432}" > pg_port.txt
+
+	# Try to infer PG_HOST from AZURE_ENV_FILE or azd output (fallback logic)
+	@PG_HOST_LINE=$$(grep -iE 'PG_HOST|POSTGRES_HOST|PG_HOST_DESTINATION' $(AZURE_ENV_FILE) | head -1); \
+	if [ -n "$$PG_HOST_LINE" ]; then \
+		PG_HOST_VALUE=$$(echo $$PG_HOST_LINE | cut -d '=' -f2 | tr -d '"'); \
+		echo "$$PG_HOST_VALUE" > pg_host.txt; \
+	else \
+		echo "ERROR: Could not extract PG_HOST from environment"; \
+		echo "" > pg_host.txt; \
+	fi
+
+	@echo "=== Postgres Connection Summary ==="
+	@cat pg_username.txt | xargs echo "PG_USERNAME:"
+	@cat pg_password.txt | xargs echo "PG_PASSWORD: [REDACTED]"
+	@cat pg_database.txt | xargs echo "PG_DATABASE:"
+	@cat pg_port.txt | xargs echo "PG_PORT:"
+	@cat pg_host.txt | xargs echo "PG_HOST_DESTINATION:"
+
 
 # Helper target to check current authentication status
 check-auth:

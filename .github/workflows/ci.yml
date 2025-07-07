@@ -291,6 +291,14 @@ jobs:
                   else
                     echo "❌ Admin URL not available for testing"
                   fi
+      - name: Read Postgres connection values
+        run: |
+          echo "PG_USERNAME=$(cat pg_username.txt)" >> $GITHUB_ENV
+          echo "PG_PASSWORD=$(cat pg_password.txt)" >> $GITHUB_ENV
+          echo "PG_DATABASE=$(cat pg_database.txt)" >> $GITHUB_ENV
+          echo "PG_PORT=$(cat pg_port.txt)" >> $GITHUB_ENV
+          echo "PG_HOST_DESTINATION=$(cat pg_host.txt)" >> $GITHUB_ENV
+
   cleanup:
     runs-on: ubuntu-latest
     needs: deploy
