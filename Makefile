@@ -122,12 +122,7 @@ deploy: azd-login ## Deploy everything to Azure
 		echo "" > pg_host.txt; \
 	fi
 
-	@echo "=== Postgres Connection Summary ==="
-	@cat pg_username.txt | xargs echo "PG_USERNAME:"
-	@cat pg_password.txt | xargs echo "PG_PASSWORD: [REDACTED]"
-	@cat pg_database.txt | xargs echo "PG_DATABASE:"
-	@cat pg_port.txt | xargs echo "PG_PORT:"
-	@cat pg_host.txt | xargs echo "PG_HOST_DESTINATION:"
+
 
 
 # Helper target to check current authentication status
