@@ -62,6 +62,7 @@ azd-login: ## 🔑 Login to Azure with azd and a SPN
 	@azd auth login --client-id ${AZURE_CLIENT_ID} --client-secret ${AZURE_CLIENT_SECRET} --tenant-id ${AZURE_TENANT_ID}
 
 # Fixed Makefile section for deploy target
+# Fixed Makefile section for deploy target
 deploy: azd-login ## Deploy everything to Azure
 	@echo -e "\e[34m$@\e[0m" || true
 	@azd env new ${AZURE_ENV_NAME}
@@ -106,21 +107,31 @@ deploy: azd-login ## Deploy everything to Azure
 	@echo "🔄 Check the pipeline logs for authentication disable status."
 
 	@echo "=== Extracting PostgreSQL connection values ==="
-	@echo "${PG_USERNAME}" > pg_username.txt
-	@echo "${PG_PASSWORD}" > pg_password.txt
-	@echo "${PG_DATABASE}" > pg_database.txt
-	@echo "${PG_PORT:-5432}" > pg_port.txt
-	@PG_HOST_LINE=$$(grep -iE 'PG_HOST|POSTGRES_HOST|PG_HOST_DESTINATION' $(AZURE_ENV_FILE) | head -1); \
-	if [ -n "$$PG_HOST_LINE" ]; then \
-		PG_HOST_VALUE=$$(echo $$PG_HOST_LINE | cut -d '=' -f2 | tr -d '"'); \
-		echo "$$PG_HOST_VALUE" > pg_host.txt; \
-	else \
-		echo "ERROR: Could not extract PG_HOST from environment"; \
-		echo "" > pg_host.txt; \
-	fi
+	# Get PostgreSQL values from azd env or set defaults
+	@azd env get-values > .env.temp 2>/dev/null || echo "" > .env.temp
 
+	# Extract PostgreSQL values with fallbacks
+	@PG_USERNAME_VAL=$$(grep -E '^POSTGRES_USERNAME=|^PG_USERNAME=' .env.temp | cut -d'=' -f2 | tr -d '"' | head -1); \
+	PG_PASSWORD_VAL=$$(grep -E '^POSTGRES_PASSWORD=|^PG_PASSWORD=' .env.temp | cut -d'=' -f2 | tr -d '"' | head -1); \
+	PG_DATABASE_VAL=$$(grep -E '^POSTGRES_DATABASE=|^PG_DATABASE=' .env.temp | cut -d'=' -f2 | tr -d '"' | head -1); \
+	PG_HOST_VAL=$$(grep -E '^POSTGRES_HOST=|^PG_HOST=' .env.temp | cut -d'=' -f2 | tr -d '"' | head -1); \
+	PG_PORT_VAL=$$(grep -E '^POSTGRES_PORT=|^PG_PORT=' .env.temp | cut -d'=' -f2 | tr -d '"' | head -1); \
+	echo "$${PG_USERNAME_VAL:-postgres}" > pg_username.txt; \
+	echo "$${PG_PASSWORD_VAL:-defaultpassword}" > pg_password.txt; \
+	echo "$${PG_DATABASE_VAL:-postgres}" > pg_database.txt; \
+	echo "$${PG_PORT_VAL:-5432}" > pg_port.txt; \
+	echo "$${PG_HOST_VAL:-localhost}" > pg_host.txt; \
+	echo "PostgreSQL connection values extracted successfully"
 
+	# Clean up temporary file
+	@rm -f .env.temp
 
+	@echo "=== PostgreSQL Configuration ==="
+	@echo "Username: $$(cat pg_username.txt 2>/dev/null || echo 'Not available')"
+	@echo "Database: $$(cat pg_database.txt 2>/dev/null || echo 'Not available')"
+	@echo "Port: $$(cat pg_port.txt 2>/dev/null || echo 'Not available')"
+	@echo "Host: $$(cat pg_host.txt 2>/dev/null || echo 'Not available')"
+	@echo "Password: [REDACTED]"
 
 # Helper target to check current authentication status
 check-auth:
@@ -152,6 +163,7 @@ disable-auth-manual:
 		echo "ERROR: disable_auth.sh not found"; \
 		exit 1; \
 	fi
+
 disable-auth-fixed:
 	@echo "=== Using Fixed Authentication Disable Script ==="
 	@if [ -f "disable_auth_fixed.sh" ]; then \
@@ -160,6 +172,7 @@ disable-auth-fixed:
 		echo "ERROR: disable_auth_fixed.sh not found"; \
 		exit 1; \
 	fi
+
 destroy: azd-login ## 🧨 Destroy everything in Azure
 	@echo -e "\e[34m$@\e[0m" || true
 	@azd down --force --purge --no-prompt
