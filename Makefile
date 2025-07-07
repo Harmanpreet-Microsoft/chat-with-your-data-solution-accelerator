@@ -83,7 +83,7 @@ deploy: azd-login ## Deploy everything to Azure
 	@jq -r '.services.web?.project?.hostedEndpoints?[0]?.url // ""' deploy_output.json > frontend_url.txt 2>/dev/null || echo "" > frontend_url.txt
 	@jq -r '.services.adminweb?.project?.hostedEndpoints?[0]?.url // ""' deploy_output.json > admin_url.txt 2>/dev/null || echo "" > admin_url.txt
 
-	# Method 2: From azd show output
+	# Method 2: From logs
 	@grep -oE "https://app-[a-zA-Z0-9-]*\.azurewebsites\.net/" full_deployment_output.log | grep -v admin | head -1 >> frontend_url.txt 2>/dev/null || true
 	@grep -oE "https://app-[a-zA-Z0-9-]*-admin\.azurewebsites\.net/" full_deployment_output.log | head -1 >> admin_url.txt 2>/dev/null || true
 
@@ -104,15 +104,12 @@ deploy: azd-login ## Deploy everything to Azure
 	@echo "🚀 Deployment completed!"
 	@echo "⏰ Authentication will be disabled via GitHub Actions pipeline."
 	@echo "🔄 Check the pipeline logs for authentication disable status."
-		@echo "=== Extracting PostgreSQL connection values ==="
 
-	# Extract from .env or azd environment output
+	@echo "=== Extracting PostgreSQL connection values ==="
 	@echo "${PG_USERNAME}" > pg_username.txt
 	@echo "${PG_PASSWORD}" > pg_password.txt
 	@echo "${PG_DATABASE}" > pg_database.txt
 	@echo "${PG_PORT:-5432}" > pg_port.txt
-
-	# Try to infer PG_HOST from AZURE_ENV_FILE or azd output (fallback logic)
 	@PG_HOST_LINE=$$(grep -iE 'PG_HOST|POSTGRES_HOST|PG_HOST_DESTINATION' $(AZURE_ENV_FILE) | head -1); \
 	if [ -n "$$PG_HOST_LINE" ]; then \
 		PG_HOST_VALUE=$$(echo $$PG_HOST_LINE | cut -d '=' -f2 | tr -d '"'); \
