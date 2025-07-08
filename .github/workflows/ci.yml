@@ -100,412 +100,428 @@ jobs:
       - name: Pre-build image and deploy
         uses: devcontainers/ci@v0.3
         env:
-                AZURE_ENV_NAME: ${{ github.run_id }}
-                AZURE_LOCATION: ${{ env.AZURE_LOCATION }}
+                      AZURE_ENV_NAME: ${{ github.run_id }}
+                      AZURE_LOCATION: ${{ env.AZURE_LOCATION }}
         with:
-                      imageName: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
-                      cacheFrom: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
-                      imageTag: ${{ env.imageTag }}
-                      runCmd: |
-                        export optional_args="./code/tests"
+                            imageName: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
+                            cacheFrom: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
+                            imageTag: ${{ env.imageTag }}
+                            runCmd: |
+                              export optional_args="./code/tests"
 
-                        # Azure login first
-                        az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
-                        az account set --subscription $AZURE_SUBSCRIPTION_ID
+                              # Azure login first
+                              az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+                              az account set --subscription $AZURE_SUBSCRIPTION_ID
 
-                        # Capture deployment output to a log file
-                        make ci 2>&1 | tee ci_output.log
-                        make deploy 2>&1 | tee deploy_output.log
+                              # Capture deployment output to a log file
+                              make ci 2>&1 | tee ci_output.log
+                              make deploy 2>&1 | tee deploy_output.log
 
-                        # Try to extract URLs from deployment logs as backup
-                        echo "=== Extracting URLs from deployment logs ==="
-                        grep -oE "https://[a-zA-Z0-9.-]*\.azurewebsites\.net/" deploy_output.log | head -2 | tee extracted_urls.txt || echo "No URLs found in logs"
+                              # Try to extract URLs from deployment logs as backup
+                              echo "=== Extracting URLs from deployment logs ==="
+                              grep -oE "https://[a-zA-Z0-9.-]*\.azurewebsites\.net/" deploy_output.log | head -2 | tee extracted_urls.txt || echo "No URLs found in logs"
 
-                        # Check if we have admin URL in logs
-                        grep -E "Done: Deploying service adminweb" -A 2 deploy_output.log | grep -oE "https://[a-zA-Z0-9.-]*\.azurewebsites\.net/" > log_admin_url.txt || echo "" > log_admin_url.txt
+                              # Check if we have admin URL in logs
+                              grep -E "Done: Deploying service adminweb" -A 2 deploy_output.log | grep -oE "https://[a-zA-Z0-9.-]*\.azurewebsites\.net/" > log_admin_url.txt || echo "" > log_admin_url.txt
 
-                        # Check if we have web URL in logs
-                        grep -E "Done: Deploying service web" -A 2 deploy_output.log | grep -oE "https://[a-zA-Z0-9.-]*\.azurewebsites\.net/" > log_frontend_url.txt || echo "" > log_frontend_url.txt
+                              # Check if we have web URL in logs
+                              grep -E "Done: Deploying service web" -A 2 deploy_output.log | grep -oE "https://[a-zA-Z0-9.-]*\.azurewebsites\.net/" > log_frontend_url.txt || echo "" > log_frontend_url.txt
 
-                        echo "URLs from logs:"
-                        echo "Admin URL from logs: $(cat log_admin_url.txt)"
-                        echo "Frontend URL from logs: $(cat log_frontend_url.txt)"
-                      env: |
-                        AZURE_CLIENT_ID
-                        AZURE_CLIENT_SECRET
-                        AZURE_TENANT_ID
-                        AZURE_SUBSCRIPTION_ID
-                        AZURE_ENV_NAME
-                        AZURE_LOCATION
-                        AUTH_ENABLED=false
-                        AZURE_USE_AUTHENTICATION=false
-                        AZURE_ENABLE_AUTH=false
-                        FORCE_NO_AUTH=true
-                        ENFORCE_AUTH=false
-                        REQUIRE_AUTHENTICATION=false
-                        AUTHENTICATION_ENABLED=false
-                        WEBSITES_AUTH_ENABLED=false
-                        WEBSITE_AUTH_ENABLED=false
-                        AZURE_AUTH_ENABLED=false
-                        ENABLE_AUTHENTICATION=false
-                        DISABLE_AUTHENTICATION=true
-                        NO_AUTH=true
-                        SKIP_AUTH=true
+                              echo "URLs from logs:"
+                              echo "Admin URL from logs: $(cat log_admin_url.txt)"
+                              echo "Frontend URL from logs: $(cat log_frontend_url.txt)"
+                            env: |
+                              AZURE_CLIENT_ID
+                              AZURE_CLIENT_SECRET
+                              AZURE_TENANT_ID
+                              AZURE_SUBSCRIPTION_ID
+                              AZURE_ENV_NAME
+                              AZURE_LOCATION
+                              AUTH_ENABLED=false
+                              AZURE_USE_AUTHENTICATION=false
+                              AZURE_ENABLE_AUTH=false
+                              FORCE_NO_AUTH=true
+                              ENFORCE_AUTH=false
+                              REQUIRE_AUTHENTICATION=false
+                              AUTHENTICATION_ENABLED=false
+                              WEBSITES_AUTH_ENABLED=false
+                              WEBSITE_AUTH_ENABLED=false
+                              AZURE_AUTH_ENABLED=false
+                              ENABLE_AUTHENTICATION=false
+                              DISABLE_AUTHENTICATION=true
+                              NO_AUTH=true
+                              SKIP_AUTH=true
 
       - name: Extract URLs from deployment
         id: extract-urls
         run: |
-                # Method 1: Check files created by Makefile
-                echo "=== Method 1: Files from Makefile ==="
-                if [ -f "frontend_url.txt" ]; then
-                  FRONTEND_URL=$(cat frontend_url.txt | tr -d '\n\r' | xargs)
-                  echo "Frontend URL from makefile: '$FRONTEND_URL'"
-                fi
+                      # Method 1: Check files created by Makefile
+                      echo "=== Method 1: Files from Makefile ==="
+                      if [ -f "frontend_url.txt" ]; then
+                        FRONTEND_URL=$(cat frontend_url.txt | tr -d '\n\r' | xargs)
+                        echo "Frontend URL from makefile: '$FRONTEND_URL'"
+                      fi
 
-                if [ -f "admin_url.txt" ]; then
-                  ADMIN_URL=$(cat admin_url.txt | tr -d '\n\r' | xargs)
-                  echo "Admin URL from makefile: '$ADMIN_URL'"
-                fi
+                      if [ -f "admin_url.txt" ]; then
+                        ADMIN_URL=$(cat admin_url.txt | tr -d '\n\r' | xargs)
+                        echo "Admin URL from makefile: '$ADMIN_URL'"
+                      fi
 
-                # Method 2: Check URLs extracted from logs
-                echo "=== Method 2: URLs from deployment logs ==="
-                if [ -f "log_frontend_url.txt" ]; then
-                  LOG_FRONTEND_URL=$(cat log_frontend_url.txt | tr -d '\n\r' | xargs)
-                  echo "Frontend URL from logs: '$LOG_FRONTEND_URL'"
-                  if [ -z "$FRONTEND_URL" ] && [ -n "$LOG_FRONTEND_URL" ]; then
-                    FRONTEND_URL="$LOG_FRONTEND_URL"
-                  fi
-                fi
+                      # Method 2: Check URLs extracted from logs
+                      echo "=== Method 2: URLs from deployment logs ==="
+                      if [ -f "log_frontend_url.txt" ]; then
+                        LOG_FRONTEND_URL=$(cat log_frontend_url.txt | tr -d '\n\r' | xargs)
+                        echo "Frontend URL from logs: '$LOG_FRONTEND_URL'"
+                        if [ -z "$FRONTEND_URL" ] && [ -n "$LOG_FRONTEND_URL" ]; then
+                          FRONTEND_URL="$LOG_FRONTEND_URL"
+                        fi
+                      fi
 
-                if [ -f "log_admin_url.txt" ]; then
-                  LOG_ADMIN_URL=$(cat log_admin_url.txt | tr -d '\n\r' | xargs)
-                  echo "Admin URL from logs: '$LOG_ADMIN_URL'"
-                  if [ -z "$ADMIN_URL" ] && [ -n "$LOG_ADMIN_URL" ]; then
-                    ADMIN_URL="$LOG_ADMIN_URL"
-                  fi
-                fi
+                      if [ -f "log_admin_url.txt" ]; then
+                        LOG_ADMIN_URL=$(cat log_admin_url.txt | tr -d '\n\r' | xargs)
+                        echo "Admin URL from logs: '$LOG_ADMIN_URL'"
+                        if [ -z "$ADMIN_URL" ] && [ -n "$LOG_ADMIN_URL" ]; then
+                          ADMIN_URL="$LOG_ADMIN_URL"
+                        fi
+                      fi
 
-                # Set outputs
-                if [ -n "$FRONTEND_URL" ] && [ "$FRONTEND_URL" != "null" ] && [ "$FRONTEND_URL" != "" ]; then
-                  echo "frontend_url=$FRONTEND_URL" >> $GITHUB_OUTPUT
-                  echo "FRONTEND_WEBSITE_URL=$FRONTEND_URL" >> $GITHUB_ENV
-                  echo "✅ Frontend URL: $FRONTEND_URL"
-                else
-                  echo "frontend_url=" >> $GITHUB_OUTPUT
-                  echo "FRONTEND_WEBSITE_URL=" >> $GITHUB_ENV
-                  echo "❌ Frontend URL: Not found"
-                fi
+                      # Set outputs
+                      if [ -n "$FRONTEND_URL" ] && [ "$FRONTEND_URL" != "null" ] && [ "$FRONTEND_URL" != "" ]; then
+                        echo "frontend_url=$FRONTEND_URL" >> $GITHUB_OUTPUT
+                        echo "FRONTEND_WEBSITE_URL=$FRONTEND_URL" >> $GITHUB_ENV
+                        echo "✅ Frontend URL: $FRONTEND_URL"
+                      else
+                        echo "frontend_url=" >> $GITHUB_OUTPUT
+                        echo "FRONTEND_WEBSITE_URL=" >> $GITHUB_ENV
+                        echo "❌ Frontend URL: Not found"
+                      fi
 
-                if [ -n "$ADMIN_URL" ] && [ "$ADMIN_URL" != "null" ] && [ "$ADMIN_URL" != "" ]; then
-                  echo "admin_url=$ADMIN_URL" >> $GITHUB_OUTPUT
-                  echo "ADMIN_WEBSITE_URL=$ADMIN_URL" >> $GITHUB_ENV
-                  echo "✅ Admin URL: $ADMIN_URL"
-                else
-                  echo "admin_url=" >> $GITHUB_OUTPUT
-                  echo "ADMIN_WEBSITE_URL=" >> $GITHUB_ENV
-                  echo "❌ Admin URL: Not found"
-                fi
+                      if [ -n "$ADMIN_URL" ] && [ "$ADMIN_URL" != "null" ] && [ "$ADMIN_URL" != "" ]; then
+                        echo "admin_url=$ADMIN_URL" >> $GITHUB_OUTPUT
+                        echo "ADMIN_WEBSITE_URL=$ADMIN_URL" >> $GITHUB_ENV
+                        echo "✅ Admin URL: $ADMIN_URL"
+                      else
+                        echo "admin_url=" >> $GITHUB_OUTPUT
+                        echo "ADMIN_WEBSITE_URL=" >> $GITHUB_ENV
+                        echo "❌ Admin URL: Not found"
+                      fi
 
-                # Additional debugging
-                echo "=== All Available Files ==="
-                ls -la *.txt *.log *.json 2>/dev/null || echo "No relevant files found"
+                      # Additional debugging
+                      echo "=== All Available Files ==="
+                      ls -la *.txt *.log *.json 2>/dev/null || echo "No relevant files found"
 
       - name: Display URLs
         run: |
-                echo "Frontend URL: ${{ env.FRONTEND_WEBSITE_URL }}"
-                echo "Admin URL: ${{ env.ADMIN_WEBSITE_URL }}"
+                      echo "Frontend URL: ${{ env.FRONTEND_WEBSITE_URL }}"
+                      echo "Admin URL: ${{ env.ADMIN_WEBSITE_URL }}"
 
       - name: Disable Authentication with Script
         run: |
-          chmod +x scripts/disable_auth.sh
-          ./scripts/disable_auth.sh
+                chmod +x scripts/disable_auth.sh
+                ./scripts/disable_auth.sh
         env:
-          FRONTEND_WEBSITE_URL: ${{ env.FRONTEND_WEBSITE_URL }}
-          ADMIN_WEBSITE_URL: ${{ env.ADMIN_WEBSITE_URL }}
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+                FRONTEND_WEBSITE_URL: ${{ env.FRONTEND_WEBSITE_URL }}
+                ADMIN_WEBSITE_URL: ${{ env.ADMIN_WEBSITE_URL }}
+                AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+                AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+                AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+                AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Export PostgreSQL env vars from Makefile output
+      - name: Export PostgreSQL Host Endpoint from Makefile
         run: |
-          # Check if PostgreSQL files exist and have content
-          if [ -f "pg_username.txt" ] && [ -s "pg_username.txt" ]; then
-            echo "PG_USERNAME=$(cat pg_username.txt | tr -d '\n\r')" >> $GITHUB_ENV
-          else
-            echo "PG_USERNAME=postgres" >> $GITHUB_ENV
-            echo "Warning: pg_username.txt not found or empty, using default"
-          fi
+                # Only extract the PostgreSQL host endpoint from Makefile output
+                # Other values are hardcoded in the script
+                echo "=== Extracting PostgreSQL Host Endpoint ==="
 
-          if [ -f "pg_password.txt" ] && [ -s "pg_password.txt" ]; then
-            echo "PG_PASSWORD=$(cat pg_password.txt | tr -d '\n\r')" >> $GITHUB_ENV
-          else
-            echo "PG_PASSWORD=defaultpassword" >> $GITHUB_ENV
-            echo "Warning: pg_password.txt not found or empty, using default"
-          fi
+                if [ -f "pg_host.txt" ] && [ -s "pg_host.txt" ]; then
+                  PG_HOST_ENDPOINT=$(cat pg_host.txt | tr -d '\n\r' | xargs)
+                  echo "PG_HOST_DESTINATION=$PG_HOST_ENDPOINT" >> $GITHUB_ENV
+                  echo "✅ PostgreSQL Host Endpoint: $PG_HOST_ENDPOINT"
+                else
+                  echo "❌ PostgreSQL host endpoint not found in pg_host.txt"
+                  echo "PG_HOST_DESTINATION=localhost" >> $GITHUB_ENV
+                  echo "Warning: Using localhost as fallback"
+                fi
 
-          if [ -f "pg_database.txt" ] && [ -s "pg_database.txt" ]; then
-            echo "PG_DATABASE=$(cat pg_database.txt | tr -d '\n\r')" >> $GITHUB_ENV
-          else
-            echo "PG_DATABASE=postgres" >> $GITHUB_ENV
-            echo "Warning: pg_database.txt not found or empty, using default"
-          fi
-
-          if [ -f "pg_port.txt" ] && [ -s "pg_port.txt" ]; then
-            echo "PG_PORT=$(cat pg_port.txt | tr -d '\n\r')" >> $GITHUB_ENV
-          else
-            echo "PG_PORT=5432" >> $GITHUB_ENV
-            echo "Warning: pg_port.txt not found or empty, using default"
-          fi
-
-          if [ -f "pg_host.txt" ] && [ -s "pg_host.txt" ]; then
-            echo "PG_HOST_DESTINATION=$(cat pg_host.txt | tr -d '\n\r')" >> $GITHUB_ENV
-          else
-            echo "PG_HOST_DESTINATION=localhost" >> $GITHUB_ENV
-            echo "Warning: pg_host.txt not found or empty, using default"
-          fi
-
-          echo "=== PostgreSQL Environment Variables Set ==="
-          echo "PG_USERNAME: $PG_USERNAME"
-          echo "PG_DATABASE: $PG_DATABASE"
-          echo "PG_PORT: $PG_PORT"
-          echo "PG_HOST_DESTINATION: $PG_HOST_DESTINATION"
-          echo "PG_PASSWORD: [REDACTED]"
+                echo "=== PostgreSQL Configuration Summary ==="
+                echo "Host Endpoint: $PG_HOST_DESTINATION"
+                echo "Username: admintest (hardcoded)"
+                echo "Password: Initial_0524 (hardcoded)"
+                echo "Database: postgres (hardcoded)"
+                echo "Port: 5432 (hardcoded)"
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+                python-version: '3.11'
 
       - name: Install Python dependencies
         run: |
-          pip install psycopg2-binary python-dotenv
+                pip install psycopg2-binary python-dotenv
 
       - name: Create PostgreSQL Data Population Script
         run: |
-          cat > populate_postgres.py << 'EOF'
-          #!/usr/bin/env python3
-          """
-          PostgreSQL Data Population Script
-          Imports CSV data into PostgreSQL database for CI/CD pipeline
-          """
+                cat > populate_postgres.py << 'EOF'
+                #!/usr/bin/env python3
+                """
+                PostgreSQL Data Population Script
+                Imports CSV data into PostgreSQL database for CI/CD pipeline
+                """
 
-          import os
-          import sys
-          import psycopg2
-          from psycopg2.extras import RealDictCursor
-          import csv
-          import logging
-          from pathlib import Path
+                import os
+                import sys
+                import psycopg2
+                from psycopg2.extras import RealDictCursor
+                import csv
+                import logging
+                from pathlib import Path
 
-          # Configure logging
-          logging.basicConfig(
-              level=logging.INFO,
-              format='%(asctime)s - %(levelname)s - %(message)s'
-          )
-          logger = logging.getLogger(__name__)
+                # Configure logging
+                logging.basicConfig(
+                    level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s'
+                )
+                logger = logging.getLogger(__name__)
 
-          def get_db_connection():
-              """
-              Establish connection to PostgreSQL database using environment variables
-              """
-              db_params = {
-                  "user": os.getenv("PG_USERNAME"),
-                  "password": os.getenv("PG_PASSWORD"),
-                  "host": os.getenv("PG_HOST_DESTINATION"),
-                  "port": os.getenv("PG_PORT", "5432"),
-                  "dbname": os.getenv("PG_DATABASE"),
-                  "sslmode": "require"
-              }
+                def get_db_connection():
+                    """
+                    Establish connection to PostgreSQL database using hardcoded values and environment endpoint
+                    """
+                    # Hardcoded values
+                    db_params = {
+                        "user": "admintest",
+                        "password": "Initial_0524",
+                        "host": os.getenv("PG_HOST_DESTINATION", "localhost"),  # Only endpoint comes from environment
+                        "port": "5432",
+                        "dbname": "postgres",
+                        "sslmode": "require"
+                    }
 
-              # Validate required parameters
-              required_params = ["user", "password", "host", "dbname"]
-              missing_params = [param for param in required_params if not db_params.get(param)]
+                    # Validate that host is provided
+                    if not db_params["host"] or db_params["host"] == "localhost":
+                        raise ValueError("PG_HOST_DESTINATION environment variable must be set with PostgreSQL endpoint")
 
-              if missing_params:
-                  raise ValueError(f"Missing required database parameters: {', '.join(missing_params)}")
+                    logger.info(f"Connecting to PostgreSQL at {db_params['host']}:{db_params['port']}")
+                    logger.info(f"Database: {db_params['dbname']}, User: {db_params['user']}")
 
-              logger.info(f"Connecting to PostgreSQL at {db_params['host']}:{db_params['port']}")
-              logger.info(f"Database: {db_params['dbname']}, User: {db_params['user']}")
+                    return psycopg2.connect(**db_params)
 
-              return psycopg2.connect(**db_params)
+                def find_csv_file(base_filename):
+                    """
+                    Find the CSV file in multiple possible locations
+                    """
+                    possible_paths = [
+                        base_filename,  # Current directory
+                        f"scripts/{base_filename}",  # Scripts directory
+                        f"./{base_filename}",  # Explicit current directory
+                        f"../scripts/{base_filename}",  # Parent scripts directory
+                    ]
 
-          def check_table_exists(cursor, table_name):
-              """
-              Check if target table exists in the database
-              """
-              cursor.execute("""
-                  SELECT EXISTS (
-                      SELECT FROM information_schema.tables
-                      WHERE table_name = %s
-                  );
-              """, (table_name,))
+                    for path in possible_paths:
+                        if Path(path).exists():
+                            logger.info(f"Found CSV file at: {path}")
+                            return path
 
-              return cursor.fetchone()[0]
+                    logger.error(f"CSV file '{base_filename}' not found in any of these locations:")
+                    for path in possible_paths:
+                        logger.error(f"  - {path}")
 
-          def validate_csv_file(csv_file_path):
-              """
-              Validate that the CSV file exists and is readable
-              """
-              if not Path(csv_file_path).exists():
-                  raise FileNotFoundError(f"CSV file not found: {csv_file_path}")
+                    return None
 
-              if not Path(csv_file_path).is_file():
-                  raise ValueError(f"Path is not a file: {csv_file_path}")
+                def check_table_exists(cursor, table_name):
+                    """
+                    Check if target table exists in the database
+                    """
+                    cursor.execute("""
+                        SELECT EXISTS (
+                            SELECT FROM information_schema.tables
+                            WHERE table_name = %s
+                        );
+                    """, (table_name,))
 
-              # Check if file is readable and get basic info
-              try:
-                  with open(csv_file_path, 'r', encoding='utf-8') as f:
-                      # Read first few lines to validate format
-                      csv_reader = csv.reader(f)
-                      header = next(csv_reader)
-                      sample_row = next(csv_reader, None)
+                    return cursor.fetchone()[0]
 
-                      logger.info(f"CSV file validation passed")
-                      logger.info(f"Header columns: {header}")
-                      logger.info(f"Total columns: {len(header)}")
+                def validate_csv_file(csv_file_path):
+                    """
+                    Validate that the CSV file exists and is readable
+                    """
+                    if not Path(csv_file_path).exists():
+                        raise FileNotFoundError(f"CSV file not found: {csv_file_path}")
 
-                      return header, sample_row
-              except Exception as e:
-                  raise ValueError(f"Error reading CSV file: {e}")
+                    if not Path(csv_file_path).is_file():
+                        raise ValueError(f"Path is not a file: {csv_file_path}")
 
-          def clear_table(cursor, table_name):
-              """
-              Clear existing data from the table (optional)
-              """
-              cursor.execute(f"DELETE FROM {table_name}")
-              deleted_rows = cursor.rowcount
-              logger.info(f"Cleared {deleted_rows} existing rows from {table_name}")
+                    # Check if file is readable and get basic info
+                    try:
+                        with open(csv_file_path, 'r', encoding='utf-8') as f:
+                            # Read first few lines to validate format
+                            csv_reader = csv.reader(f)
+                            header = next(csv_reader)
+                            sample_row = next(csv_reader, None)
 
-          def import_csv_data(csv_file_path, table_name, clear_existing=False):
-              """
-              Import CSV data into PostgreSQL table
-              """
-              try:
-                  # Validate CSV file
-                  header, sample_row = validate_csv_file(csv_file_path)
+                            logger.info(f"CSV file validation passed")
+                            logger.info(f"Header columns: {header}")
+                            logger.info(f"Total columns: {len(header)}")
 
-                  # Connect to database
-                  with get_db_connection() as conn:
-                      with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                          # Check if table exists
-                          if not check_table_exists(cur, table_name):
-                              logger.warning(f"Target table '{table_name}' does not exist, skipping import")
-                              return 0
+                            return header, sample_row
+                    except Exception as e:
+                        raise ValueError(f"Error reading CSV file: {e}")
 
-                          # Clear existing data if requested
-                          if clear_existing:
-                              clear_table(cur, table_name)
+                def clear_table(cursor, table_name):
+                    """
+                    Clear existing data from the table (optional)
+                    """
+                    cursor.execute(f"DELETE FROM {table_name}")
+                    deleted_rows = cursor.rowcount
+                    logger.info(f"Cleared {deleted_rows} existing rows from {table_name}")
 
-                          # Import data using COPY command (most efficient)
-                          logger.info(f"Starting data import from {csv_file_path}")
+                def import_csv_data(csv_file_path, table_name, clear_existing=False):
+                    """
+                    Import CSV data into PostgreSQL table
+                    """
+                    try:
+                        # Validate CSV file
+                        header, sample_row = validate_csv_file(csv_file_path)
 
-                          with open(csv_file_path, 'r', encoding='utf-8') as f:
-                              # Skip header row
-                              next(f)
+                        # Connect to database
+                        with get_db_connection() as conn:
+                            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                                # Check if table exists
+                                if not check_table_exists(cur, table_name):
+                                    logger.warning(f"Target table '{table_name}' does not exist, skipping import")
+                                    return 0
 
-                              # Use COPY command for efficient bulk insert
-                              copy_sql = f"COPY {table_name} FROM STDIN WITH CSV"
-                              cur.copy_expert(copy_sql, f)
+                                # Clear existing data if requested
+                                if clear_existing:
+                                    clear_table(cur, table_name)
 
-                          # Get row count
-                          cur.execute(f"SELECT COUNT(*) FROM {table_name}")
-                          total_rows = cur.fetchone()[0]
+                                # Import data using COPY command (most efficient)
+                                logger.info(f"Starting data import from {csv_file_path}")
 
-                          conn.commit()
-                          logger.info(f"✅ Successfully imported data into '{table_name}'")
-                          logger.info(f"Total rows in table: {total_rows}")
+                                with open(csv_file_path, 'r', encoding='utf-8') as f:
+                                    # Skip header row
+                                    next(f)
 
-                          return total_rows
+                                    # Use COPY command for efficient bulk insert
+                                    copy_sql = f"COPY {table_name} FROM STDIN WITH CSV"
+                                    cur.copy_expert(copy_sql, f)
 
-              except psycopg2.Error as e:
-                  logger.error(f"❌ PostgreSQL error: {e}")
-                  raise
-              except Exception as e:
-                  logger.error(f"❌ Error during import: {e}")
-                  raise
+                                # Get row count
+                                cur.execute(f"SELECT COUNT(*) FROM {table_name}")
+                                total_rows = cur.fetchone()[0]
 
-          def main():
-              """
-              Main function to run the data import
-              """
-              # Get parameters from environment or use defaults
-              csv_file = os.getenv("CSV_FILE_PATH", "exported_data_vector_score.csv")
-              target_table = os.getenv("TARGET_TABLE", "vector_store")
-              clear_existing = os.getenv("CLEAR_EXISTING_DATA", "false").lower() == "true"
+                                conn.commit()
+                                logger.info(f"✅ Successfully imported data into '{table_name}'")
+                                logger.info(f"Total rows in table: {total_rows}")
 
-              logger.info("=== PostgreSQL Data Population Script ===")
-              logger.info(f"CSV File: {csv_file}")
-              logger.info(f"Target Table: {target_table}")
-              logger.info(f"Clear Existing Data: {clear_existing}")
+                                return total_rows
 
-              try:
-                  # Import the data
-                  row_count = import_csv_data(csv_file, target_table, clear_existing)
+                    except psycopg2.Error as e:
+                        logger.error(f"❌ PostgreSQL error: {e}")
+                        raise
+                    except Exception as e:
+                        logger.error(f"❌ Error during import: {e}")
+                        raise
 
-                  logger.info("=== Import Summary ===")
-                  logger.info(f"✅ Successfully imported {row_count} rows")
-                  logger.info(f"✅ Data population completed successfully")
+                def main():
+                    """
+                    Main function to run the data import
+                    """
+                    # Get parameters from environment or use defaults
+                    csv_filename = os.getenv("CSV_FILE_PATH", "exported_data_vector_score.csv")
+                    target_table = os.getenv("TARGET_TABLE", "vector_store")
+                    clear_existing = os.getenv("CLEAR_EXISTING_DATA", "false").lower() == "true"
 
-                  return 0
+                    logger.info("=== PostgreSQL Data Population Script ===")
+                    logger.info(f"CSV Filename: {csv_filename}")
+                    logger.info(f"Target Table: {target_table}")
+                    logger.info(f"Clear Existing Data: {clear_existing}")
+                    logger.info("Using hardcoded PostgreSQL credentials:")
+                    logger.info("  - Username: admintest")
+                    logger.info("  - Database: postgres")
+                    logger.info("  - Port: 5432")
+                    logger.info(f"  - Host: {os.getenv('PG_HOST_DESTINATION', 'NOT SET')}")
 
-              except Exception as e:
-                  logger.error("=== Import Failed ===")
-                  logger.error(f"❌ {str(e)}")
-                  return 1
+                    try:
+                        # Find the CSV file
+                        csv_file_path = find_csv_file(csv_filename)
+                        if not csv_file_path:
+                            logger.error("❌ CSV file not found in any expected location")
+                            return 1
 
-          if __name__ == "__main__":
-              sys.exit(main())
-          EOF
+                        # Import the data
+                        row_count = import_csv_data(csv_file_path, target_table, clear_existing)
+
+                        logger.info("=== Import Summary ===")
+                        logger.info(f"✅ Successfully imported {row_count} rows")
+                        logger.info(f"✅ Data population completed successfully")
+
+                        return 0
+
+                    except Exception as e:
+                        logger.error("=== Import Failed ===")
+                        logger.error(f"❌ {str(e)}")
+                        return 1
+
+                if __name__ == "__main__":
+                    sys.exit(main())
+                EOF
 
       - name: Populate PostgreSQL Database
         run: |
-          echo "=== PostgreSQL Database Population ==="
-          echo "Checking for CSV file..."
+                echo "=== PostgreSQL Database Population ==="
+                echo "Using hardcoded credentials with extracted host endpoint"
+                echo "Host: $PG_HOST_DESTINATION"
+                echo "Username: admintest"
+                echo "Database: postgres"
+                echo "Port: 5432"
+                echo ""
+                echo "Checking for CSV file..."
 
-          # Check if CSV file exists in scripts directory
-          if [ -f "scripts/exported_data_vector_score.csv" ]; then
-            echo "✅ CSV file found: scripts/exported_data_vector_score.csv"
 
-            # Copy CSV file to current directory for the Python script
-            cp scripts/exported_data_vector_score.csv exported_data_vector_score.csv
-            echo "✅ CSV file copied to working directory"
+                # Check if CSV file exists in scripts directory
+                if [ -f "scripts/exported_data_vector_score.csv" ]; then
+                  echo "✅ CSV file found: scripts/exported_data_vector_score.csv"
 
-            # Run the Python script to populate the database
-            python populate_postgres.py
+                  # Copy CSV file to current directory for the Python script
+                  cp scripts/exported_data_vector_score.csv exported_data_vector_score.csv
+                  echo "✅ CSV file copied to working directory"
 
-            echo "✅ PostgreSQL database population completed"
-          elif [ -f "exported_data_vector_score.csv" ]; then
-            echo "✅ CSV file found: exported_data_vector_score.csv"
+                  # Run the Python script to populate the database
+                  python populate_postgres.py
 
-            # Run the Python script to populate the database
-            python populate_postgres.py
+                  echo "✅ PostgreSQL database population completed"
+                elif [ -f "exported_data_vector_score.csv" ]; then
+                  echo "✅ CSV file found: exported_data_vector_score.csv"
 
-            echo "✅ PostgreSQL database population completed"
-          else
-            echo "⚠️  CSV file 'exported_data_vector_score.csv' not found in current directory"
-            echo "⚠️  CSV file 'scripts/exported_data_vector_score.csv' not found in scripts directory"
-            echo "Skipping database population step"
+                  # Run the Python script to populate the database
+                  python populate_postgres.py
 
-            # List available files for debugging
-            echo "Available files in current directory:"
-            ls -la *.csv 2>/dev/null || echo "No CSV files found in current directory"
+                  echo "✅ PostgreSQL database population completed"
+                else
+                  echo "⚠️  CSV file 'exported_data_vector_score.csv' not found in current directory"
+                  echo "⚠️  CSV file 'scripts/exported_data_vector_score.csv' not found in scripts directory"
+                  echo "Skipping database population step"
 
-            echo "Available files in scripts directory:"
-            ls -la scripts/*.csv 2>/dev/null || echo "No CSV files found in scripts directory"
+                  # List available files for debugging
+                  echo "Available files in current directory:"
+                  ls -la *.csv 2>/dev/null || echo "No CSV files found in current directory"
 
-            echo "All files in scripts directory:"
-            ls -la scripts/ 2>/dev/null || echo "Scripts directory not found"
-          fi
+                  echo "Available files in scripts directory:"
+                  ls -la scripts/*.csv 2>/dev/null || echo "No CSV files found in scripts directory"
+
+                  echo "All files in scripts directory:"
+                  ls -la scripts/ 2>/dev/null || echo "Scripts directory not found"
+                fi
         env:
-          PG_USERNAME: ${{ env.PG_USERNAME }}
-          PG_PASSWORD: ${{ env.PG_PASSWORD }}
-          PG_HOST_DESTINATION: ${{ env.PG_HOST_DESTINATION }}
-          PG_PORT: ${{ env.PG_PORT }}
-          PG_DATABASE: ${{ env.PG_DATABASE }}
-          CSV_FILE_PATH: exported_data_vector_score.csv
-          TARGET_TABLE: vector_store
-          CLEAR_EXISTING_DATA: "true"
+                PG_USERNAME: ${{ env.PG_USERNAME }}
+                PG_PASSWORD: ${{ env.PG_PASSWORD }}
+                PG_HOST_DESTINATION: ${{ env.PG_HOST_DESTINATION }}
+                PG_PORT: ${{ env.PG_PORT }}
+                PG_DATABASE: ${{ env.PG_DATABASE }}
+                CSV_FILE_PATH: exported_data_vector_score.csv
+                TARGET_TABLE: vector_store
+                CLEAR_EXISTING_DATA: "true"
 
 
       - name: Final Status Check

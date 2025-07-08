@@ -21,23 +21,21 @@ logger = logging.getLogger(__name__)
 
 def get_db_connection():
     """
-    Establish connection to PostgreSQL database using environment variables
+    Establish connection to PostgreSQL database using hardcoded values and environment endpoint
     """
+    # Hardcoded values
     db_params = {
-        "user": os.getenv("PG_USERNAME"),
-        "password": os.getenv("PG_PASSWORD"),
-        "host": os.getenv("PG_HOST_DESTINATION"),
-        "port": os.getenv("PG_PORT", "5432"),
-        "dbname": os.getenv("PG_DATABASE"),
+        "user": "admintest",
+        "password": "Initial_0524",
+        "host": os.getenv("PG_HOST_DESTINATION", "localhost"),  # Only endpoint comes from environment
+        "port": "5432",
+        "dbname": "postgres",
         "sslmode": "require"
     }
 
-    # Validate required parameters
-    required_params = ["user", "password", "host", "dbname"]
-    missing_params = [param for param in required_params if not db_params.get(param)]
-
-    if missing_params:
-        raise ValueError(f"Missing required database parameters: {', '.join(missing_params)}")
+    # Validate that host is provided
+    if not db_params["host"] or db_params["host"] == "localhost":
+        raise ValueError("PG_HOST_DESTINATION environment variable must be set with PostgreSQL endpoint")
 
     logger.info(f"Connecting to PostgreSQL at {db_params['host']}:{db_params['port']}")
     logger.info(f"Database: {db_params['dbname']}, User: {db_params['user']}")
@@ -191,6 +189,11 @@ def main():
     logger.info(f"CSV Filename: {csv_filename}")
     logger.info(f"Target Table: {target_table}")
     logger.info(f"Clear Existing Data: {clear_existing}")
+    logger.info("Using hardcoded PostgreSQL credentials:")
+    logger.info("  - Username: admintest")
+    logger.info("  - Database: postgres")
+    logger.info("  - Port: 5432")
+    logger.info(f"  - Host: {os.getenv('PG_HOST_DESTINATION', 'NOT SET')}")
 
     try:
         # Find the CSV file

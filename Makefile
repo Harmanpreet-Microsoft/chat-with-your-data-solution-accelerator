@@ -106,33 +106,37 @@ deploy: azd-login ## Deploy everything to Azure
 	@echo "⏰ Authentication will be disabled via GitHub Actions pipeline."
 	@echo "🔄 Check the pipeline logs for authentication disable status."
 
-	@echo "=== Extracting PostgreSQL connection values ==="
-	# Get PostgreSQL values from azd env or set defaults
+	@echo "=== Extracting PostgreSQL Host Endpoint ==="
+	# Get PostgreSQL host endpoint from azd env
 	@azd env get-values > .env.temp 2>/dev/null || echo "" > .env.temp
 
-	# Extract PostgreSQL values with fallbacks
-	@PG_USERNAME_VAL=$$(grep -E '^POSTGRES_USERNAME=|^PG_USERNAME=' .env.temp | cut -d'=' -f2 | tr -d '"' | head -1); \
-	PG_PASSWORD_VAL=$$(grep -E '^POSTGRES_PASSWORD=|^PG_PASSWORD=' .env.temp | cut -d'=' -f2 | tr -d '"' | head -1); \
-	PG_DATABASE_VAL=$$(grep -E '^POSTGRES_DATABASE=|^PG_DATABASE=' .env.temp | cut -d'=' -f2 | tr -d '"' | head -1); \
-	PG_HOST_VAL=$$(grep -E '^POSTGRES_HOST=|^PG_HOST=' .env.temp | cut -d'=' -f2 | tr -d '"' | head -1); \
-	PG_PORT_VAL=$$(grep -E '^POSTGRES_PORT=|^PG_PORT=' .env.temp | cut -d'=' -f2 | tr -d '"' | head -1); \
-	echo "$${PG_USERNAME_VAL:-postgres}" > pg_username.txt; \
-	echo "$${PG_PASSWORD_VAL:-defaultpassword}" > pg_password.txt; \
-	echo "$${PG_DATABASE_VAL:-postgres}" > pg_database.txt; \
-	echo "$${PG_PORT_VAL:-5432}" > pg_port.txt; \
-	echo "$${PG_HOST_VAL:-localhost}" > pg_host.txt; \
-	echo "PostgreSQL connection values extracted successfully"
+	# Extract PostgreSQL host endpoint only (other values are hardcoded)
+	@PG_HOST_VAL=$$(grep -E '^POSTGRES_HOST=|^PG_HOST=|^POSTGRES_SERVER=' .env.temp | cut -d'=' -f2 | tr -d '"' | head -1); \
+	if [ -z "$$PG_HOST_VAL" ]; then \
+		PG_HOST_VAL=$$(grep -E '^AZURE_POSTGRESQL_HOST=|^DATABASE_HOST=' .env.temp | cut -d'=' -f2 | tr -d '"' | head -1); \
+	fi; \
+	if [ -z "$$PG_HOST_VAL" ]; then \
+		echo "Warning: PostgreSQL host not found in environment, using localhost"; \
+		PG_HOST_VAL="localhost"; \
+	fi; \
+	echo "$$PG_HOST_VAL" > pg_host.txt; \
+	echo "PostgreSQL host endpoint extracted: $$PG_HOST_VAL"
+
+	# Create hardcoded values for other PostgreSQL parameters
+	@echo "admintest" > pg_username.txt
+	@echo "Initial_0524" > pg_password.txt
+	@echo "postgres" > pg_database.txt
+	@echo "5432" > pg_port.txt
 
 	# Clean up temporary file
 	@rm -f .env.temp
 
 	@echo "=== PostgreSQL Configuration ==="
-	@echo "Username: $$(cat pg_username.txt 2>/dev/null || echo 'Not available')"
-	@echo "Database: $$(cat pg_database.txt 2>/dev/null || echo 'Not available')"
-	@echo "Port: $$(cat pg_port.txt 2>/dev/null || echo 'Not available')"
+	@echo "Username: admintest (hardcoded)"
+	@echo "Database: postgres (hardcoded)"
+	@echo "Port: 5432 (hardcoded)"
 	@echo "Host: $$(cat pg_host.txt 2>/dev/null || echo 'Not available')"
-	@echo "Password: [REDACTED]"
-
+	@echo "Password: Initial_0524 (hardcoded)"
 # Helper target to check current authentication status
 check-auth:
 	@echo "=== Checking Authentication Status ==="
