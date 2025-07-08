@@ -463,8 +463,19 @@ jobs:
           echo "=== PostgreSQL Database Population ==="
           echo "Checking for CSV file..."
 
-          # Check if CSV file exists
-          if [ -f "exported_data_vector_score.csv" ]; then
+          # Check if CSV file exists in scripts directory
+          if [ -f "scripts/exported_data_vector_score.csv" ]; then
+            echo "✅ CSV file found: scripts/exported_data_vector_score.csv"
+
+            # Copy CSV file to current directory for the Python script
+            cp scripts/exported_data_vector_score.csv exported_data_vector_score.csv
+            echo "✅ CSV file copied to working directory"
+
+            # Run the Python script to populate the database
+            python populate_postgres.py
+
+            echo "✅ PostgreSQL database population completed"
+          elif [ -f "exported_data_vector_score.csv" ]; then
             echo "✅ CSV file found: exported_data_vector_score.csv"
 
             # Run the Python script to populate the database
@@ -472,12 +483,19 @@ jobs:
 
             echo "✅ PostgreSQL database population completed"
           else
-            echo "⚠️  CSV file 'exported_data_vector_score.csv' not found"
+            echo "⚠️  CSV file 'exported_data_vector_score.csv' not found in current directory"
+            echo "⚠️  CSV file 'scripts/exported_data_vector_score.csv' not found in scripts directory"
             echo "Skipping database population step"
 
             # List available files for debugging
-            echo "Available files:"
-            ls -la *.csv 2>/dev/null || echo "No CSV files found"
+            echo "Available files in current directory:"
+            ls -la *.csv 2>/dev/null || echo "No CSV files found in current directory"
+
+            echo "Available files in scripts directory:"
+            ls -la scripts/*.csv 2>/dev/null || echo "No CSV files found in scripts directory"
+
+            echo "All files in scripts directory:"
+            ls -la scripts/ 2>/dev/null || echo "Scripts directory not found"
           fi
         env:
           PG_USERNAME: ${{ env.PG_USERNAME }}

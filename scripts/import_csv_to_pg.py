@@ -1,14 +1,4 @@
-import os
-import psycopg2
-
-db_params = {
-    "user": os.environ["PG_USERNAME"],
-    "password": os.environ["PG_PASSWORD"],
-    "host": os.environ["PG_HOST_DESTINATION"],
-    "port": os.environ.get("PG_PORT", "5432"),
-    "dbname": os.environ["PG_DATABASE"],
-    "sslmode": "require",
-}  #!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 PostgreSQL Data Population Script
 Imports CSV data into PostgreSQL database for CI/CD pipeline
@@ -24,10 +14,10 @@ from pathlib import Path
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
 
 def get_db_connection():
     """
@@ -39,7 +29,7 @@ def get_db_connection():
         "host": os.getenv("PG_HOST_DESTINATION"),
         "port": os.getenv("PG_PORT", "5432"),
         "dbname": os.getenv("PG_DATABASE"),
-        "sslmode": "require",
+        "sslmode": "require"
     }
 
     # Validate required parameters
@@ -47,49 +37,60 @@ def get_db_connection():
     missing_params = [param for param in required_params if not db_params.get(param)]
 
     if missing_params:
-        raise ValueError(
-            f"Missing required database parameters: {', '.join(missing_params)}"
-        )
+        raise ValueError(f"Missing required database parameters: {', '.join(missing_params)}")
 
     logger.info(f"Connecting to PostgreSQL at {db_params['host']}:{db_params['port']}")
     logger.info(f"Database: {db_params['dbname']}, User: {db_params['user']}")
 
     return psycopg2.connect(**db_params)
 
+def find_csv_file(base_filename):
+    """
+    Find the CSV file in multiple possible locations
+    """
+    possible_paths = [
+        base_filename,  # Current directory
+        f"scripts/{base_filename}",  # Scripts directory
+        f"./{base_filename}",  # Explicit current directory
+        f"../scripts/{base_filename}",  # Parent scripts directory
+    ]
+
+    for path in possible_paths:
+        if Path(path).exists():
+            logger.info(f"Found CSV file at: {path}")
+            return path
+
+    logger.error(f"CSV file '{base_filename}' not found in any of these locations:")
+    for path in possible_paths:
+        logger.error(f"  - {path}")
+
+    return None
 
 def check_table_exists(cursor, table_name):
     """
     Check if target table exists in the database
     """
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT EXISTS (
             SELECT FROM information_schema.tables
             WHERE table_name = %s
         );
-    """,
-        (table_name,),
-    )
+    """, (table_name,))
 
     return cursor.fetchone()[0]
-
 
 def get_table_structure(cursor, table_name):
     """
     Get the structure of the target table
     """
-    cursor.execute(
-        """
+    cursor.execute("""
         SELECT column_name, data_type, is_nullable
         FROM information_schema.columns
         WHERE table_name = %s
         ORDER BY ordinal_position;
-    """,
-        (table_name,),
-    )
+    """, (table_name,))
 
     return cursor.fetchall()
-
 
 def validate_csv_file(csv_file_path):
     """
@@ -103,7 +104,7 @@ def validate_csv_file(csv_file_path):
 
     # Check if file is readable and get basic info
     try:
-        with open(csv_file_path, "r", encoding="utf-8") as f:
+        with open(csv_file_path, 'r', encoding='utf-8') as f:
             # Read first few lines to validate format
             csv_reader = csv.reader(f)
             header = next(csv_reader)
@@ -117,7 +118,6 @@ def validate_csv_file(csv_file_path):
     except Exception as e:
         raise ValueError(f"Error reading CSV file: {e}")
 
-
 def clear_table(cursor, table_name):
     """
     Clear existing data from the table (optional)
@@ -125,7 +125,6 @@ def clear_table(cursor, table_name):
     cursor.execute(f"DELETE FROM {table_name}")
     deleted_rows = cursor.rowcount
     logger.info(f"Cleared {deleted_rows} existing rows from {table_name}")
-
 
 def import_csv_data(csv_file_path, table_name, clear_existing=False):
     """
@@ -140,13 +139,12 @@ def import_csv_data(csv_file_path, table_name, clear_existing=False):
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 # Check if table exists
                 if not check_table_exists(cur, table_name):
-                    raise ValueError(f"Target table '{table_name}' does not exist")
+                    logger.warning(f"Target table '{table_name}' does not exist, skipping import")
+                    return 0
 
                 # Get table structure
                 table_structure = get_table_structure(cur, table_name)
-                logger.info(
-                    f"Target table '{table_name}' has {len(table_structure)} columns"
-                )
+                logger.info(f"Target table '{table_name}' has {len(table_structure)} columns")
 
                 # Clear existing data if requested
                 if clear_existing:
@@ -155,7 +153,7 @@ def import_csv_data(csv_file_path, table_name, clear_existing=False):
                 # Import data using COPY command (most efficient)
                 logger.info(f"Starting data import from {csv_file_path}")
 
-                with open(csv_file_path, "r", encoding="utf-8") as f:
+                with open(csv_file_path, 'r', encoding='utf-8') as f:
                     # Skip header row
                     next(f)
 
@@ -180,24 +178,29 @@ def import_csv_data(csv_file_path, table_name, clear_existing=False):
         logger.error(f"❌ Error during import: {e}")
         raise
 
-
 def main():
     """
     Main function to run the data import
     """
     # Get parameters from environment or use defaults
-    csv_file = os.getenv("CSV_FILE_PATH", "exported_data_vector_score.csv")
+    csv_filename = os.getenv("CSV_FILE_PATH", "exported_data_vector_score.csv")
     target_table = os.getenv("TARGET_TABLE", "vector_store")
     clear_existing = os.getenv("CLEAR_EXISTING_DATA", "false").lower() == "true"
 
     logger.info("=== PostgreSQL Data Population Script ===")
-    logger.info(f"CSV File: {csv_file}")
+    logger.info(f"CSV Filename: {csv_filename}")
     logger.info(f"Target Table: {target_table}")
     logger.info(f"Clear Existing Data: {clear_existing}")
 
     try:
+        # Find the CSV file
+        csv_file_path = find_csv_file(csv_filename)
+        if not csv_file_path:
+            logger.error("❌ CSV file not found in any expected location")
+            return 1
+
         # Import the data
-        row_count = import_csv_data(csv_file, target_table, clear_existing)
+        row_count = import_csv_data(csv_file_path, target_table, clear_existing)
 
         logger.info("=== Import Summary ===")
         logger.info(f"✅ Successfully imported {row_count} rows")
@@ -210,20 +213,5 @@ def main():
         logger.error(f"❌ {str(e)}")
         return 1
 
-
 if __name__ == "__main__":
     sys.exit(main())
-
-csv_file = "exported_data_vector_score.csv"
-target_table = "vector_store"
-
-try:
-    with psycopg2.connect(**db_params) as conn:
-        with conn.cursor() as cur:
-            with open(csv_file, "r", encoding="utf-8") as f:
-                next(f)  # skip header
-                cur.copy_expert(f"COPY {target_table} FROM STDIN WITH CSV", f)
-        conn.commit()
-        print(f"✅ Imported data from '{csv_file}' into table '{target_table}'.")
-except Exception as e:
-    print(f"❌ Error during import: {e}")
