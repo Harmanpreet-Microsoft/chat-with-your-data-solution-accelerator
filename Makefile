@@ -76,19 +76,13 @@ deploy: azd-login ## Deploy everything to Azure
 	@sleep 30
 	@azd show --output json > deploy_output.json || echo "{}" > deploy_output.json
 
-	# Extract URLs using multiple methods
+	# Extract URLs
 	@echo "=== Extracting URLs using multiple methods ==="
 	@azd show 2>&1 | tee full_deployment_output.log
-
-	# Method 1: From azd show JSON output
-	@jq -r '.services.web?.project?.hostedEndpoints?[0]?.url // ""' deploy_output.json > frontend_url.txt 2>/dev/null || echo "" > frontend_url.txt
-	@jq -r '.services.adminweb?.project?.hostedEndpoints?[0]?.url // ""' deploy_output.json > admin_url.txt 2>/dev/null || echo "" > admin_url.txt
-
-	# Method 2: From logs
-	@grep -oE "https://app-[a-zA-Z0-9-]*\.azurewebsites\.net/" full_deployment_output.log | grep -v admin | head -1 >> frontend_url.txt 2>/dev/null || true
-	@grep -oE "https://app-[a-zA-Z0-9-]*-admin\.azurewebsites\.net/" full_deployment_output.log | head -1 >> admin_url.txt 2>/dev/null || true
-
-	# Clean up URLs (remove duplicates and empty lines)
+	@jq -r '.services.web?.project?.hostedEndpoints?[0]?.url // ""' deploy_output.json > frontend_url.txt || echo "" > frontend_url.txt
+	@jq -r '.services.adminweb?.project?.hostedEndpoints?[0]?.url // ""' deploy_output.json > admin_url.txt || echo "" > admin_url.txt
+	@grep -oE "https://app-[a-zA-Z0-9-]*\.azurewebsites\.net/" full_deployment_output.log | grep -v admin | head -1 >> frontend_url.txt || true
+	@grep -oE "https://app-[a-zA-Z0-9-]*-admin\.azurewebsites\.net/" full_deployment_output.log | head -1 >> admin_url.txt || true
 	@sort frontend_url.txt | uniq | grep -v '^$$' | head -1 > frontend_url_clean.txt && mv frontend_url_clean.txt frontend_url.txt || echo "" > frontend_url.txt
 	@sort admin_url.txt | uniq | grep -v '^$$' | head -1 > admin_url_clean.txt && mv admin_url_clean.txt admin_url.txt || echo "" > admin_url.txt
 
@@ -99,36 +93,39 @@ deploy: azd-login ## Deploy everything to Azure
 	echo "Admin URL: $$ADMIN_URL"
 
 	@echo "=== Final Deployment Status ==="
-	@echo "Frontend URL:" && cat frontend_url.txt 2>/dev/null || echo "Not available"
-	@echo "Admin URL:" && cat admin_url.txt 2>/dev/null || echo "Not available"
+	@echo "Frontend URL:" && cat frontend_url.txt || echo "Not available"
+	@echo "Admin URL:" && cat admin_url.txt || echo "Not available"
 	@echo ""
 	@echo "🚀 Deployment completed!"
 	@echo "⏰ Authentication will be disabled via GitHub Actions pipeline."
 	@echo "🔄 Check the pipeline logs for authentication disable status."
 
 	@echo "=== Extracting PostgreSQL Host Endpoint ==="
-	# Get PostgreSQL host endpoint from azd env
 	@azd env get-values > .env.temp 2>/dev/null || echo "" > .env.temp
 
-	# Extract PostgreSQL host endpoint only (other values are hardcoded)
-	@PG_HOST_VAL=$$(grep -E '^POSTGRES_HOST=|^PG_HOST=|^POSTGRES_SERVER=' .env.temp | cut -d'=' -f2 | tr -d '"' | head -1); \
-	if [ -z "$$PG_HOST_VAL" ]; then \
-		PG_HOST_VAL=$$(grep -E '^AZURE_POSTGRESQL_HOST=|^DATABASE_HOST=' .env.temp | cut -d'=' -f2 | tr -d '"' | head -1); \
+	# Infer RESOURCE_GROUP from azd env (if not provided externally)
+	@RESOURCE_GROUP_VAL=$$(grep '^AZURE_RESOURCE_GROUP_NAME=' .env.temp | cut -d'=' -f2 | tr -d '"' | xargs); \
+	if [ -z "$$RESOURCE_GROUP_VAL" ]; then \
+		echo "❌ Resource group not found in .env.temp. Using fallback 'default-rg'"; \
+		RESOURCE_GROUP_VAL="default-rg"; \
 	fi; \
-	if [ -z "$$PG_HOST_VAL" ]; then \
-		echo "Warning: PostgreSQL host not found in environment, using localhost"; \
-		PG_HOST_VAL="localhost"; \
-	fi; \
-	echo "$$PG_HOST_VAL" > pg_host.txt; \
-	echo "PostgreSQL host endpoint extracted: $$PG_HOST_VAL"
+	echo "Using RESOURCE_GROUP=$$RESOURCE_GROUP_VAL"; \
+	PG_SERVER_NAME=$$(az postgres flexible-server list \
+		--resource-group "$$RESOURCE_GROUP_VAL" \
+		--query "[0].name" -o tsv); \
+	if [ -z "$$PG_SERVER_NAME" ]; then \
+		echo "❌ PostgreSQL server not found in resource group $$RESOURCE_GROUP_VAL"; \
+		echo "localhost" > pg_host.txt; \
+	else \
+		echo "$$PG_SERVER_NAME.postgres.database.azure.com" > pg_host.txt; \
+		echo "✅ PostgreSQL host written to pg_host.txt: $$PG_SERVER_NAME.postgres.database.azure.com"; \
+	fi
 
 	# Create hardcoded values for other PostgreSQL parameters
 	@echo "admintest" > pg_username.txt
 	@echo "Initial_0524" > pg_password.txt
 	@echo "postgres" > pg_database.txt
 	@echo "5432" > pg_port.txt
-
-	# Clean up temporary file
 	@rm -f .env.temp
 
 	@echo "=== PostgreSQL Configuration ==="
@@ -137,18 +134,7 @@ deploy: azd-login ## Deploy everything to Azure
 	@echo "Port: 5432 (hardcoded)"
 	@echo "Host: $$(cat pg_host.txt 2>/dev/null || echo 'Not available')"
 	@echo "Password: Initial_0524 (hardcoded)"
-	@echo "🔍 Extracting PostgreSQL info using Azure CLI"
-	PG_SERVER_NAME=$$(az postgres flexible-server list \
-		--resource-group $(RESOURCE_GROUP) \
-		--query "[0].name" -o tsv)
 
-	@if [ -z "$$PG_SERVER_NAME" ]; then \
-		echo "❌ PostgreSQL server not found in resource group $(RESOURCE_GROUP)"; \
-		echo "localhost" > pg_host.txt; \
-	else \
-		echo "$$PG_SERVER_NAME.postgres.database.azure.com" > pg_host.txt; \
-		echo "✅ PostgreSQL host written to pg_host.txt: $$PG_SERVER_NAME.postgres.database.azure.com"; \
-	fi
 # Helper target to check current authentication status
 check-auth:
 	@echo "=== Checking Authentication Status ==="
