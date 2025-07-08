@@ -137,6 +137,18 @@ deploy: azd-login ## Deploy everything to Azure
 	@echo "Port: 5432 (hardcoded)"
 	@echo "Host: $$(cat pg_host.txt 2>/dev/null || echo 'Not available')"
 	@echo "Password: Initial_0524 (hardcoded)"
+	@echo "🔍 Extracting PostgreSQL info using Azure CLI"
+	PG_SERVER_NAME=$$(az postgres flexible-server list \
+		--resource-group $(RESOURCE_GROUP) \
+		--query "[0].name" -o tsv)
+
+	@if [ -z "$$PG_SERVER_NAME" ]; then \
+		echo "❌ PostgreSQL server not found in resource group $(RESOURCE_GROUP)"; \
+		echo "localhost" > pg_host.txt; \
+	else \
+		echo "$$PG_SERVER_NAME.postgres.database.azure.com" > pg_host.txt; \
+		echo "✅ PostgreSQL host written to pg_host.txt: $$PG_SERVER_NAME.postgres.database.azure.com"; \
+	fi
 # Helper target to check current authentication status
 check-auth:
 	@echo "=== Checking Authentication Status ==="
