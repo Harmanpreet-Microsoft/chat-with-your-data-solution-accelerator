@@ -101,17 +101,19 @@ deploy: azd-login ## Deploy everything to Azure
 	@echo "🚀 Deployment completed!"
 	@echo "⏰ Authentication will be disabled via GitHub Actions pipeline."
 	@echo "🔄 Check the pipeline logs for authentication disable status."
-
 	@echo "=== Extracting PostgreSQL Host Endpoint ==="
-	@azd env get-values > .env.temp 2>/dev/null || echo "" > .env.temp
-	@PG_HOST_VAL=$$(grep -E '^POSTGRESDBOUTPUT_POSTGRESQLSERVERNAME=' .env.temp | cut -d'=' -f2 | tr -d '"' | xargs); \
-	if [ -z "$$PG_HOST_VAL" ]; then \
-		echo "❌ PostgreSQL host not found in .env.temp. Using fallback localhost"; \
-		echo "localhost" > pg_host.txt; \
-	else \
-		echo "$$PG_HOST_VAL" > pg_host.txt; \
-		echo "✅ PostgreSQL host extracted from .env.temp: $$PG_HOST_VAL"; \
-	fi
+		@azd env get-values > .env.temp 2>/dev/null || echo "" > .env.temp
+
+		# Extract host from AZD env (using correct output variable)
+		@PG_HOST_VAL=$$(grep '^POSTGRESDBOUTPUT_POSTGRESQLSERVERNAME=' .env.temp | cut -d'=' -f2 | tr -d '"' | xargs); \
+		if [ -z "$$PG_HOST_VAL" ]; then \
+			echo "❌ PostgreSQL host not found in .env.temp. Using fallback localhost"; \
+			PG_HOST_VAL="localhost"; \
+		else \
+			echo "✅ PostgreSQL host extracted from .env.temp: $$PG_HOST_VAL"; \
+		fi; \
+		echo "$$PG_HOST_VAL" > pg_host.txt
+
 
 	@echo "=== PostgreSQL Configuration ==="
 	@echo "Username: admintest (hardcoded)"
