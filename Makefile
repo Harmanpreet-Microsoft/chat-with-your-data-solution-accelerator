@@ -106,8 +106,7 @@ deploy: azd-login ## Deploy everything to Azure
 	@echo "=== Extracting PostgreSQL Host Endpoint ==="
 		@azd env get-values > .env.temp 2>/dev/null || echo "" > .env.temp
 
-
-		@PG_HOST_VAL=$$(grep '^POSTGRESDBOUTPUT_POSTGRESDBOUTPUT__POSTGRESQLSERVERNAME=' .env.temp | cut -d'=' -f2 | tr -d '"' | xargs); \
+		@PG_HOST_VAL=$$(grep '^AZURE_POSTGRESQL_HOST_NAME=' .env.temp | cut -d'=' -f2 | tr -d '"' | xargs); \
 		if [ -z "$$PG_HOST_VAL" ]; then \
 			echo "❌ PostgreSQL host not found in .env.temp. Using fallback localhost"; \
 			PG_HOST_VAL="localhost"; \
@@ -115,6 +114,7 @@ deploy: azd-login ## Deploy everything to Azure
 			echo "✅ PostgreSQL host extracted from .env.temp: $$PG_HOST_VAL"; \
 		fi; \
 		echo "$$PG_HOST_VAL" > pg_host.txt
+
 
 
 
