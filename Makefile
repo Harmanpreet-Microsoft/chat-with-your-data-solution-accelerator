@@ -72,6 +72,8 @@ deploy: azd-login ## Deploy everything to Azure
 	@azd deploy web --no-prompt || true
 	@azd deploy function --no-prompt || true
 	@azd deploy adminweb --no-prompt
+	@azd env get-values > .env.temp
+	@cat .env.temp
 
 	@sleep 30
 	@azd show --output json > deploy_output.json || echo "{}" > deploy_output.json
@@ -104,7 +106,7 @@ deploy: azd-login ## Deploy everything to Azure
 	@echo "=== Extracting PostgreSQL Host Endpoint ==="
 		@azd env get-values > .env.temp 2>/dev/null || echo "" > .env.temp
 
-		# Extract host from AZD env (using correct output variable)
+
 		@PG_HOST_VAL=$$(grep '^POSTGRESDBOUTPUT_POSTGRESDBOUTPUT__POSTGRESQLSERVERNAME=' .env.temp | cut -d'=' -f2 | tr -d '"' | xargs); \
 		if [ -z "$$PG_HOST_VAL" ]; then \
 			echo "❌ PostgreSQL host not found in .env.temp. Using fallback localhost"; \
@@ -113,6 +115,7 @@ deploy: azd-login ## Deploy everything to Azure
 			echo "✅ PostgreSQL host extracted from .env.temp: $$PG_HOST_VAL"; \
 		fi; \
 		echo "$$PG_HOST_VAL" > pg_host.txt
+
 
 
 	@echo "=== PostgreSQL Configuration ==="
