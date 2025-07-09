@@ -75,6 +75,9 @@ deploy: azd-login ## Deploy everything to Azure
 
 	@sleep 30
 	@azd show --output json > deploy_output.json || echo "{}" > deploy_output.json
+	@echo "=== deploy_output.json contents ==="
+    @cat deploy_output.json | jq . || cat deploy_output.json
+
 
 	# Extract URLs
 	@echo "=== Extracting URLs using multiple methods ==="
@@ -101,25 +104,15 @@ deploy: azd-login ## Deploy everything to Azure
 	@echo "🔄 Check the pipeline logs for authentication disable status."
 
 	@echo "=== Extracting PostgreSQL Host Endpoint ==="
-	@azd env get-values > .env.temp 2>/dev/null || echo "" > .env.temp
-
-	# Infer RESOURCE_GROUP from azd env (if not provided externally)
-	@RESOURCE_GROUP_VAL=$$(grep '^AZURE_RESOURCE_GROUP_NAME=' .env.temp | cut -d'=' -f2 | tr -d '"' | xargs); \
-	if [ -z "$$RESOURCE_GROUP_VAL" ]; then \
-		echo "❌ Resource group not found in .env.temp. Using fallback 'default-rg'"; \
-		RESOURCE_GROUP_VAL="default-rg"; \
-	fi; \
-	echo "Using RESOURCE_GROUP=$$RESOURCE_GROUP_VAL"; \
-	PG_SERVER_NAME=$$(az postgres flexible-server list \
-		--resource-group "$$RESOURCE_GROUP_VAL" \
-		--query "[0].name" -o tsv); \
-	if [ -z "$$PG_SERVER_NAME" ]; then \
-		echo "❌ PostgreSQL server not found in resource group $$RESOURCE_GROUP_VAL"; \
+	@PG_HOST_VAL=$$(jq -r '.outputs.postgresDbOutput?.value?.postgreSQLServerName // empty' deploy_output.json); \
+	if [ -z "$$PG_HOST_VAL" ]; then \
+		echo "❌ PostgreSQL host not found in deploy_output.json, using fallback localhost"; \
 		echo "localhost" > pg_host.txt; \
 	else \
-		echo "$$PG_SERVER_NAME.postgres.database.azure.com" > pg_host.txt; \
-		echo "✅ PostgreSQL host written to pg_host.txt: $$PG_SERVER_NAME.postgres.database.azure.com"; \
+		echo "$$PG_HOST_VAL" > pg_host.txt; \
+		echo "✅ PostgreSQL host extracted from deploy_output.json: $$PG_HOST_VAL"; \
 	fi
+
 
 	# Create hardcoded values for other PostgreSQL parameters
 	@echo "admintest" > pg_username.txt
