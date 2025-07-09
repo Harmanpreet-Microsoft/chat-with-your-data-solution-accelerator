@@ -76,8 +76,7 @@ deploy: azd-login ## Deploy everything to Azure
 	@sleep 30
 	@azd show --output json > deploy_output.json || echo "{}" > deploy_output.json
 	@echo "=== deploy_output.json contents ==="
-    @cat deploy_output.json | jq . || cat deploy_output.json
-
+	@cat deploy_output.json | jq . || cat deploy_output.json
 
 	# Extract URLs
 	@echo "=== Extracting URLs using multiple methods ==="
@@ -112,7 +111,6 @@ deploy: azd-login ## Deploy everything to Azure
 		echo "$$PG_HOST_VAL" > pg_host.txt; \
 		echo "✅ PostgreSQL host extracted from deploy_output.json: $$PG_HOST_VAL"; \
 	fi
-
 
 	# Create hardcoded values for other PostgreSQL parameters
 	@echo "admintest" > pg_username.txt
