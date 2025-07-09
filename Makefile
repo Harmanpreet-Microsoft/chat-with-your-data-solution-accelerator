@@ -103,21 +103,15 @@ deploy: azd-login ## Deploy everything to Azure
 	@echo "🔄 Check the pipeline logs for authentication disable status."
 
 	@echo "=== Extracting PostgreSQL Host Endpoint ==="
-	@PG_HOST_VAL=$$(jq -r '.outputs.postgresDbOutput?.value?.postgreSQLServerName // empty' deploy_output.json); \
+	@azd env get-values > .env.temp 2>/dev/null || echo "" > .env.temp
+	@PG_HOST_VAL=$$(grep -E '^POSTGRESDBOUTPUT_POSTGRESQLSERVERNAME=' .env.temp | cut -d'=' -f2 | tr -d '"' | xargs); \
 	if [ -z "$$PG_HOST_VAL" ]; then \
-		echo "❌ PostgreSQL host not found in deploy_output.json, using fallback localhost"; \
+		echo "❌ PostgreSQL host not found in .env.temp. Using fallback localhost"; \
 		echo "localhost" > pg_host.txt; \
 	else \
 		echo "$$PG_HOST_VAL" > pg_host.txt; \
-		echo "✅ PostgreSQL host extracted from deploy_output.json: $$PG_HOST_VAL"; \
+		echo "✅ PostgreSQL host extracted from .env.temp: $$PG_HOST_VAL"; \
 	fi
-
-	# Create hardcoded values for other PostgreSQL parameters
-	@echo "admintest" > pg_username.txt
-	@echo "Initial_0524" > pg_password.txt
-	@echo "postgres" > pg_database.txt
-	@echo "5432" > pg_port.txt
-	@rm -f .env.temp
 
 	@echo "=== PostgreSQL Configuration ==="
 	@echo "Username: admintest (hardcoded)"
