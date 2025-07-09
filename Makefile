@@ -118,6 +118,7 @@ deploy: azd-login ## Deploy everything to Azure
 
 
 
+
 	@echo "=== PostgreSQL Configuration ==="
 	@echo "Username: admintest (hardcoded)"
 	@echo "Database: postgres (hardcoded)"
