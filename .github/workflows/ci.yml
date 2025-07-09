@@ -475,7 +475,7 @@ jobs:
             title TEXT,
             chunk TEXT,
             chunk_id TEXT,
-            offset TEXT,
+            \"offset\" TEXT,
             page_number TEXT,
             content TEXT,
             source TEXT,
@@ -485,6 +485,7 @@ jobs:
           "
         env:
           PG_HOST_DESTINATION: ${{ env.PG_HOST_DESTINATION }}
+
 
       - name: Populate PostgreSQL Database
         run: |
