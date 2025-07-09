@@ -466,6 +466,25 @@ jobs:
                 if __name__ == "__main__":
                     sys.exit(main())
                 EOF
+      - name: Ensure vector_store table exists
+        run: |
+          echo "Creating table 'vector_store' if it does not exist..."
+          PGPASSWORD=Initial_0524 psql -h $PG_HOST_DESTINATION -U admintest -d postgres -p 5432 -c "
+          CREATE TABLE IF NOT EXISTS vector_store (
+            id TEXT,
+            title TEXT,
+            chunk TEXT,
+            chunk_id TEXT,
+            offset TEXT,
+            page_number TEXT,
+            content TEXT,
+            source TEXT,
+            metadata TEXT,
+            content_vector TEXT
+          );
+          "
+        env:
+          PG_HOST_DESTINATION: ${{ env.PG_HOST_DESTINATION }}
 
       - name: Populate PostgreSQL Database
         run: |
