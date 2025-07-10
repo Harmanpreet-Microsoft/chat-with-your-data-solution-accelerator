@@ -299,6 +299,7 @@ jobs:
 
 
       - name: Final Status Check
+        id: final-status
         run: |
                       echo "=== Final Deployment Status ==="
                       echo "Frontend URL: ${{ env.FRONTEND_WEBSITE_URL }}"
@@ -327,7 +328,7 @@ jobs:
                   --output table
           fi
       - name: Verify Deployment Health
-        id: final-status
+
         run: |
                   echo "=== Final Deployment Health Check ==="
 
@@ -377,7 +378,7 @@ jobs:
 
 
   cleanup:
-    if: always() && needs.deploy.outputs.RESOURCE_GROUP_NAME != ''
+    if: always()
     needs: [deploy, e2e-test]
     runs-on: ubuntu-latest
 
