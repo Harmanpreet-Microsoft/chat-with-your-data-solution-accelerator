@@ -106,6 +106,7 @@ jobs:
                       AZURE_ENV_NAME: ${{ github.run_id }}
                       AZURE_LOCATION: ${{ env.AZURE_LOCATION }}
         with:
+                            push: never
                             imageName: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
                             cacheFrom: ghcr.io/azure-samples/chat-with-your-data-solution-accelerator
                             imageTag: ${{ env.imageTag }}
