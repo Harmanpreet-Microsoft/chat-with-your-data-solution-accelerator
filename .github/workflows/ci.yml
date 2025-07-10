@@ -376,9 +376,10 @@ jobs:
 
 
   cleanup:
+    if: always() && needs.deploy.outputs.RESOURCE_GROUP_NAME != ''
+    needs: [deploy, e2e-test]
     runs-on: ubuntu-latest
-    needs: deploy
-    if: always()
+
     env:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
