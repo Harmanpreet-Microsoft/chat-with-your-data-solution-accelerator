@@ -28,6 +28,9 @@ jobs:
 
     outputs:
       imageTag: ${{ steps.set-image-tag.outputs.imageTag }}
+      web_url: ${{ steps.extract-urls.outputs.frontend_url }}
+      admin_url: ${{ steps.extract-urls.outputs.admin_url }}
+      DEPLOYMENT_SUCCESS: ${{ steps.final-status.outputs.DEPLOYMENT_SUCCESS }}
 
     steps:
       - name: Checkout code
@@ -214,6 +217,8 @@ jobs:
         run: |
                       echo "Frontend URL: ${{ env.FRONTEND_WEBSITE_URL }}"
                       echo "Admin URL: ${{ env.ADMIN_WEBSITE_URL }}"
+                      echo "frontend_url=$FRONTEND_URL" >> $GITHUB_OUTPUT
+                      echo "admin_url=$ADMIN_URL" >> $GITHUB_OUTPUT
 
       - name: Disable Authentication with Script
         run: |
@@ -305,6 +310,8 @@ jobs:
                       echo "🌐 Try accessing your applications:"
                       echo "   Frontend: ${{ env.FRONTEND_WEBSITE_URL }}"
                       echo "   Admin: ${{ env.ADMIN_WEBSITE_URL }}"
+                      echo "DEPLOYMENT_SUCCESS=true" >> $GITHUB_OUTPUT
+
 
       - name: Wait for 5 minutes for propagation
         run: sleep 300
@@ -319,6 +326,7 @@ jobs:
                   --output table
           fi
       - name: Verify Deployment Health
+        id: final-status
         run: |
                   echo "=== Final Deployment Health Check ==="
 
@@ -356,6 +364,15 @@ jobs:
                   else
                     echo "❌ Admin URL not available for testing"
                   fi
+
+
+  e2e-test:
+    needs: deploy
+    if: needs.deploy.outputs.DEPLOYMENT_SUCCESS == 'true'
+    uses: ./.github/workflows/test-automation.yml
+    with:
+      web_url: ${{ needs.deploy.outputs.frontend_url }}
+      admin_url: ${{ needs.deploy.outputs.admin_url }}
 
 
   cleanup:
