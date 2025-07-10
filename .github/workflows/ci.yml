@@ -28,7 +28,7 @@ jobs:
 
     outputs:
       imageTag: ${{ steps.set-image-tag.outputs.imageTag }}
-      web_url: ${{ steps.extract-urls.outputs.frontend_url }}
+      web_url: ${{ steps.extract-urls.outputs.web_url }}
       admin_url: ${{ steps.extract-urls.outputs.admin_url }}
       DEPLOYMENT_SUCCESS: ${{ steps.final-status.outputs.DEPLOYMENT_SUCCESS }}
 
@@ -129,11 +129,11 @@ jobs:
                               grep -E "Done: Deploying service adminweb" -A 2 deploy_output.log | grep -oE "https://[a-zA-Z0-9.-]*\.azurewebsites\.net/" > log_admin_url.txt || echo "" > log_admin_url.txt
 
                               # Check if we have web URL in logs
-                              grep -E "Done: Deploying service web" -A 2 deploy_output.log | grep -oE "https://[a-zA-Z0-9.-]*\.azurewebsites\.net/" > log_frontend_url.txt || echo "" > log_frontend_url.txt
+                              grep -E "Done: Deploying service web" -A 2 deploy_output.log | grep -oE "https://[a-zA-Z0-9.-]*\.azurewebsites\.net/" > log_web_url.txt || echo "" > log_web_url.txt
 
                               echo "URLs from logs:"
                               echo "Admin URL from logs: $(cat log_admin_url.txt)"
-                              echo "Frontend URL from logs: $(cat log_frontend_url.txt)"
+                              echo "Frontend URL from logs: $(cat log_web_url.txt)"
                             env: |
                               AZURE_CLIENT_ID
                               AZURE_CLIENT_SECRET
@@ -161,9 +161,9 @@ jobs:
         run: |
                       # Method 1: Check files created by Makefile
                       echo "=== Method 1: Files from Makefile ==="
-                      if [ -f "frontend_url.txt" ]; then
-                        FRONTEND_URL=$(cat frontend_url.txt | tr -d '\n\r' | xargs)
-                        echo "Frontend URL from makefile: '$FRONTEND_URL'"
+                      if [ -f "web_url.txt" ]; then
+                        WEB_URL=$(cat web_url.txt | tr -d '\n\r' | xargs)
+                        echo "Web URL from makefile: '$WEB_URL'"
                       fi
 
                       if [ -f "admin_url.txt" ]; then
@@ -173,11 +173,11 @@ jobs:
 
                       # Method 2: Check URLs extracted from logs
                       echo "=== Method 2: URLs from deployment logs ==="
-                      if [ -f "log_frontend_url.txt" ]; then
-                        LOG_FRONTEND_URL=$(cat log_frontend_url.txt | tr -d '\n\r' | xargs)
-                        echo "Frontend URL from logs: '$LOG_FRONTEND_URL'"
-                        if [ -z "$FRONTEND_URL" ] && [ -n "$LOG_FRONTEND_URL" ]; then
-                          FRONTEND_URL="$LOG_FRONTEND_URL"
+                      if [ -f "log_web_url.txt" ]; then
+                        LOG_WEB_URL=$(cat log_web_url.txt | tr -d '\n\r' | xargs)
+                        echo "Web URL from logs: '$LOG_WEB_URL'"
+                        if [ -z "$WEB_URL" ] && [ -n "$LOG_WEB_URL" ]; then
+                          WEB_URL="$LOG_WEB_URL"
                         fi
                       fi
 
@@ -190,12 +190,12 @@ jobs:
                       fi
 
                       # Set outputs
-                      if [ -n "$FRONTEND_URL" ] && [ "$FRONTEND_URL" != "null" ] && [ "$FRONTEND_URL" != "" ]; then
-                        echo "frontend_url=$FRONTEND_URL" >> $GITHUB_OUTPUT
-                        echo "FRONTEND_WEBSITE_URL=$FRONTEND_URL" >> $GITHUB_ENV
-                        echo "✅ Frontend URL: $FRONTEND_URL"
+                      if [ -n "$WEB_URL" ] && [ "$WEB_URL" != "null" ] && [ "$WEB_URL" != "" ]; then
+                        echo "web_url=$WEB_URL" >> $GITHUB_OUTPUT
+                        echo "WEB_WEBSITE_URL=$WEB_URL" >> $GITHUB_ENV
+                        echo "✅ Web URL: $WEB_URL"
                       else
-                        echo "frontend_url=" >> $GITHUB_OUTPUT
+                        echo "web_url=" >> $GITHUB_OUTPUT
                         echo "FRONTEND_WEBSITE_URL=" >> $GITHUB_ENV
                         echo "❌ Frontend URL: Not found"
                       fi
@@ -216,9 +216,9 @@ jobs:
 
       - name: Display URLs
         run: |
-                      echo "Frontend URL: ${{ env.FRONTEND_WEBSITE_URL }}"
+                      echo "Web URL: ${{ env.WEB_WEBSITE_URL }}"
                       echo "Admin URL: ${{ env.ADMIN_WEBSITE_URL }}"
-                      echo "frontend_url=$FRONTEND_URL" >> $GITHUB_OUTPUT
+                      echo "web_url=$WEB_URL" >> $GITHUB_OUTPUT
                       echo "admin_url=$ADMIN_URL" >> $GITHUB_OUTPUT
 
       - name: Disable Authentication with Script
@@ -373,7 +373,7 @@ jobs:
     if: needs.deploy.outputs.DEPLOYMENT_SUCCESS == 'true'
     uses: ./.github/workflows/test-automation.yml
     with:
-      web_url: ${{ needs.deploy.outputs.frontend_url }}
+      web_url: ${{ needs.deploy.outputs.web_url }}
       admin_url: ${{ needs.deploy.outputs.admin_url }}
 
 
