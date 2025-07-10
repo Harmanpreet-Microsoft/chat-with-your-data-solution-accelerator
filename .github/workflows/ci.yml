@@ -226,7 +226,7 @@ jobs:
                 chmod +x scripts/disable_auth.sh
                 ./scripts/disable_auth.sh
         env:
-                FRONTEND_WEBSITE_URL: ${{ env.FRONTEND_WEBSITE_URL }}
+                FRONTEND_WEBSITE_URL: ${{ env.WEB_WEBSITE_URL }}
                 ADMIN_WEBSITE_URL: ${{ env.ADMIN_WEBSITE_URL }}
                 AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
                 AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
