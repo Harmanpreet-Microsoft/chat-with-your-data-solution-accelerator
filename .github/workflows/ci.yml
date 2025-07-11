@@ -329,8 +329,7 @@ jobs:
 
 
   cleanup:
-    if: cancelled()
-
+    if: always()
     needs: [deploy, e2e-test]
     runs-on: ubuntu-latest
 
