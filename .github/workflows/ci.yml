@@ -298,35 +298,9 @@ jobs:
 
 
 
-      - name: Final Status Check
-        id: final-status
-        run: |
-                      echo "=== Final Deployment Status ==="
-                      echo "Frontend URL: ${{ env.FRONTEND_WEBSITE_URL }}"
-                      echo "Admin URL: ${{ env.ADMIN_WEBSITE_URL }}"
-                      echo ""
-                      echo "🚀 Deployment completed!"
-                      echo "⏰ If you still see authentication errors, wait an additional 10-15 minutes."
-                      echo "🔄 Azure authentication changes can take up to 15 minutes to fully propagate."
-                      echo ""
-                      echo "🌐 Try accessing your applications:"
-                      echo "   Frontend: ${{ env.FRONTEND_WEBSITE_URL }}"
-                      echo "   Admin: ${{ env.ADMIN_WEBSITE_URL }}"
-                      echo "DEPLOYMENT_SUCCESS=true" >> $GITHUB_OUTPUT
-
-
       - name: Wait for 5 minutes for propagation
         run: sleep 300
-      - name: Verify Authentication Settings
-        run: |
-          echo "=== Verifying Authentication Settings ==="
-          if [ -n "$FRONTEND_APP" ] && [ -n "$RESOURCE_GROUP" ]; then
-              az webapp config appsettings list \
-                  --name "$FRONTEND_APP" \
-                  --resource-group "$RESOURCE_GROUP" \
-                  --query "[?contains(name, 'AUTH') || contains(name, 'FORCE')].{name:name,value:value}" \
-                  --output table
-          fi
+
       - name: Verify Deployment Health
 
         run: |
@@ -337,10 +311,10 @@ jobs:
                   sleep 60
 
                   # Test if the URLs are accessible
-                  if [ -n "${{ env.FRONTEND_WEBSITE_URL }}" ]; then
+                  if [ -n "${{ env.WEB_WEBSITE_URL }}" ]; then
                     echo "Testing frontend accessibility..."
                     for i in {1..5}; do
-                      if curl -f -s -L --max-time 30 "${{ env.FRONTEND_WEBSITE_URL }}" > /dev/null; then
+                      if curl -f -s -L --max-time 30 "${{ env.WEB_WEBSITE_URL }}" > /dev/null; then
                         echo "✅ Frontend is accessible (attempt $i)"
                         break
                       else
