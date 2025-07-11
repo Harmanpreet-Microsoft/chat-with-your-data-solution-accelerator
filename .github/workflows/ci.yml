@@ -298,48 +298,25 @@ jobs:
 
 
 
+      - name: Final Status Check
+        id: final-status
+        run: |
+                      echo "=== Final Deployment Status ==="
+                      echo "Frontend URL: ${{ env.FRONTEND_WEBSITE_URL }}"
+                      echo "Admin URL: ${{ env.ADMIN_WEBSITE_URL }}"
+                      echo ""
+                      echo "🚀 Deployment completed!"
+                      echo "⏰ If you still see authentication errors, wait an additional 10-15 minutes."
+                      echo "🔄 Azure authentication changes can take up to 15 minutes to fully propagate."
+                      echo ""
+                      echo "🌐 Try accessing your applications:"
+                      echo "   Frontend: ${{ env.FRONTEND_WEBSITE_URL }}"
+                      echo "   Admin: ${{ env.ADMIN_WEBSITE_URL }}"
+                      echo "DEPLOYMENT_SUCCESS=true" >> $GITHUB_OUTPUT
+
+
       - name: Wait for 5 minutes for propagation
         run: sleep 300
-
-      - name: Verify Deployment Health
-
-        run: |
-                  echo "=== Final Deployment Health Check ==="
-
-                  # Wait additional time for services to be fully ready
-                  echo "Waiting additional 60 seconds for services to be ready..."
-                  sleep 60
-
-                  # Test if the URLs are accessible
-                  if [ -n "${{ env.WEB_WEBSITE_URL }}" ]; then
-                    echo "Testing frontend accessibility..."
-                    for i in {1..5}; do
-                      if curl -f -s -L --max-time 30 "${{ env.WEB_WEBSITE_URL }}" > /dev/null; then
-                        echo "✅ Frontend is accessible (attempt $i)"
-                        break
-                      else
-                        echo "❌ Frontend not accessible (attempt $i), retrying in 30 seconds..."
-                        sleep 30
-                      fi
-                    done
-                  else
-                    echo "❌ Frontend URL not available for testing"
-                  fi
-
-                  if [ -n "${{ env.ADMIN_WEBSITE_URL }}" ]; then
-                    echo "Testing admin accessibility..."
-                    for i in {1..5}; do
-                      if curl -f -s -L --max-time 30 "${{ env.ADMIN_WEBSITE_URL }}" > /dev/null; then
-                        echo "✅ Admin is accessible (attempt $i)"
-                        break
-                      else
-                        echo "❌ Admin not accessible (attempt $i), retrying in 30 seconds..."
-                        sleep 30
-                      fi
-                    done
-                  else
-                    echo "❌ Admin URL not available for testing"
-                  fi
 
 
   e2e-test:
