@@ -1,5 +1,24 @@
+# Print package versions
+import importlib.metadata
+def print_package_versions():
+    packages = [
+        "psycopg2-binary",
+        "azure-identity",
+        "azure-keyvault-secrets"
+    ]
+    print("Installed package versions:")
+    for pkg in packages:
+        try:
+            version = importlib.metadata.version(pkg)
+            print(f"{pkg}: {version}")
+        except importlib.metadata.PackageNotFoundError:
+            print(f"{pkg}: Not installed")
+print_package_versions()
+
+
 from azure.identity import DefaultAzureCredential
 import psycopg2
+
 from psycopg2 import sql
 
 key_vault_name = "kv_to-be-replaced"
