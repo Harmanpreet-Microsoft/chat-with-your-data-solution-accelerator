@@ -484,7 +484,7 @@ module searchIndexRoleOpenai 'core/security/role.bicep' = {
   params: {
     principalId: openai.outputs.identityPrincipalId
     roleDefinitionId: '1407120a-92aa-4202-b7e9-c0e197c71c8f'
-    //principalType: 'ServicePrincipal'
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -495,7 +495,7 @@ module searchServiceRoleOpenai 'core/security/role.bicep' = {
   params: {
     principalId: openai.outputs.identityPrincipalId
     roleDefinitionId: '7ca78c08-252a-4471-8644-bb5ff32d4ba0'
-    //principalType: 'ServicePrincipal'
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -506,7 +506,7 @@ module blobDataReaderRoleSearch 'core/security/role.bicep' = if (databaseType ==
   params: {
     principalId: search.outputs.identityPrincipalId
     roleDefinitionId: '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1'
-    //principalType: 'ServicePrincipal'
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -517,7 +517,7 @@ module openAiRoleSearchService 'core/security/role.bicep' = if (databaseType == 
   params: {
     principalId: search.outputs.identityPrincipalId
     roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
-    //principalType: 'ServicePrincipal'
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -1186,7 +1186,16 @@ module storageRoleUser 'core/security/role.bicep' = if (principalId != '') {
   params: {
     principalId: principalId
     roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
-    //principalType: 'User'
+    principalType: 'User'
+  }
+}
+module servicePrincipalstorageRoleUser 'core/security/role.bicep' = if (principalId != '') {
+  scope: rg
+  name: 'storage-role-user'
+  params: {
+    principalId: principalId
+    roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -1197,7 +1206,16 @@ module openaiRoleUser 'core/security/role.bicep' = if (principalId != '') {
   params: {
     principalId: principalId
     roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908'
-    //principalType: 'User'
+    principalType: 'User'
+  }
+}
+module servicePrincipalOpenaiRoleUser 'core/security/role.bicep' = if (principalId != '') {
+  scope: rg
+  name: 'openai-role-user'
+  params: {
+    principalId: principalId
+    roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908'
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -1208,7 +1226,16 @@ module openaiRoleUserContributor 'core/security/role.bicep' = if (principalId !=
   params: {
     principalId: principalId
     roleDefinitionId: 'b24988ac-6180-42a0-ab88-20f7382dd24c'
-    //principalType: 'User'
+    principalType: 'User'
+  }
+}
+module servicePrincipalOpenaiRoleUserContributor 'core/security/role.bicep' = if (principalId != '') {
+  scope: rg
+  name: 'openai-role-user-contributor'
+  params: {
+    principalId: principalId
+    roleDefinitionId: 'b24988ac-6180-42a0-ab88-20f7382dd24c'
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -1219,7 +1246,16 @@ module searchRoleUser 'core/security/role.bicep' = if (principalId != '' && data
   params: {
     principalId: principalId
     roleDefinitionId: '8ebe5a00-799e-43f5-93ac-243d3dce84a7'
-    // principalType: 'User'
+    principalType: 'User'
+  }
+}
+module servicePrincipalSearchRoleUser 'core/security/role.bicep' = if (principalId != '' && databaseType == 'CosmosDB') {
+  scope: rg
+  name: 'search-role-user'
+  params: {
+    principalId: principalId
+    roleDefinitionId: '8ebe5a00-799e-43f5-93ac-243d3dce84a7'
+    principalType: 'ServicePrincipal'
   }
 }
 
