@@ -1,5 +1,5 @@
 targetScope = 'subscription'
-param isServicePrincipal bool = false
+
 @minLength(1)
 @maxLength(20)
 @description('Name of the the environment which is used to generate a short unique hash used in all resources.')
@@ -328,7 +328,6 @@ var eventGridSystemTopicName = 'doc-processing'
 var tags = { 'azd-env-name': environmentName }
 var keyVaultName = '${abbrs.security.keyVault}${resourceToken}'
 var baseUrl = 'https://raw.githubusercontent.com/Harmanpreet-Microsoft/chat-with-your-data-solution-accelerator/dev/'
-
 var appversion = 'dev' // Update GIT deployment branch
 var registryName = 'cwydcontainerreg' // Update Registry name
 
@@ -354,7 +353,9 @@ var semanticKernelSystemPrompt = '''You help employees to navigate only private 
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: rgName
   location: location
-  tags: tags
+  tags: union(tags, {
+    TemplateName: 'CWYD'
+  })
 }
 
 // ========== Managed Identity ========== //
@@ -1195,7 +1196,7 @@ module storageRoleUser 'core/security/role.bicep' = if (principalId != '') {
   params: {
     principalId: principalId
     roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
-    principalType: isServicePrincipal ? 'ServicePrincipal' : 'User'
+    principalType: 'User'
   }
 }
 
@@ -1206,7 +1207,7 @@ module openaiRoleUser 'core/security/role.bicep' = if (principalId != '') {
   params: {
     principalId: principalId
     roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908'
-    principalType: isServicePrincipal ? 'ServicePrincipal' : 'User'
+    principalType: 'User'
   }
 }
 
@@ -1217,7 +1218,7 @@ module openaiRoleUserContributor 'core/security/role.bicep' = if (principalId !=
   params: {
     principalId: principalId
     roleDefinitionId: 'b24988ac-6180-42a0-ab88-20f7382dd24c'
-    principalType: isServicePrincipal ? 'ServicePrincipal' : 'User'
+    principalType: 'User'
   }
 }
 
@@ -1228,7 +1229,7 @@ module searchRoleUser 'core/security/role.bicep' = if (principalId != '' && data
   params: {
     principalId: principalId
     roleDefinitionId: '8ebe5a00-799e-43f5-93ac-243d3dce84a7'
-    principalType: isServicePrincipal ? 'ServicePrincipal' : 'User'
+    principalType: 'User'
   }
 }
 

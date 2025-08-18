@@ -68,8 +68,7 @@ deploy: azd-login ## Deploy everything to Azure
 	@azd env new ${AZURE_ENV_NAME}
 
 	# Provision and deploy
-	@azd provision --no-prompt --parameters isServicePrincipal=true
-
+	@azd provision --no-prompt
 	@azd deploy web --no-prompt || true
 	@azd deploy function --no-prompt || true
 	@azd deploy adminweb --no-prompt

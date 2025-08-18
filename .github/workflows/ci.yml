@@ -135,7 +135,6 @@ jobs:
                               echo "Admin URL from logs: $(cat log_admin_url.txt)"
                               echo "Frontend URL from logs: $(cat log_web_url.txt)"
                             env: |
-                              isServicePrincipal: true
                               AZURE_CLIENT_ID
                               AZURE_CLIENT_SECRET
                               AZURE_TENANT_ID
