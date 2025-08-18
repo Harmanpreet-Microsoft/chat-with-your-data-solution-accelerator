@@ -5,10 +5,14 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "2892865210703996524"
+      "templateHash": "1675284766308998305"
     }
   },
   "parameters": {
+    "isServicePrincipal": {
+      "type": "bool",
+      "defaultValue": false
+    },
     "environmentName": {
       "type": "string",
       "minLength": 1,
@@ -1873,7 +1877,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "3429658987926653054"
+              "templateHash": "2667061524101374844"
             },
             "description": "Creates a role assignment for a service principal."
           },
@@ -1883,6 +1887,7 @@
             },
             "principalType": {
               "type": "string",
+              "defaultValue": "ServicePrincipal",
               "allowedValues": [
                 "Device",
                 "ForeignGroup",
@@ -1942,7 +1947,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "3429658987926653054"
+              "templateHash": "2667061524101374844"
             },
             "description": "Creates a role assignment for a service principal."
           },
@@ -1952,6 +1957,7 @@
             },
             "principalType": {
               "type": "string",
+              "defaultValue": "ServicePrincipal",
               "allowedValues": [
                 "Device",
                 "ForeignGroup",
@@ -2012,7 +2018,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "3429658987926653054"
+              "templateHash": "2667061524101374844"
             },
             "description": "Creates a role assignment for a service principal."
           },
@@ -2022,6 +2028,7 @@
             },
             "principalType": {
               "type": "string",
+              "defaultValue": "ServicePrincipal",
               "allowedValues": [
                 "Device",
                 "ForeignGroup",
@@ -2082,7 +2089,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "3429658987926653054"
+              "templateHash": "2667061524101374844"
             },
             "description": "Creates a role assignment for a service principal."
           },
@@ -2092,6 +2099,7 @@
             },
             "principalType": {
               "type": "string",
+              "defaultValue": "ServicePrincipal",
               "allowedValues": [
                 "Device",
                 "ForeignGroup",
@@ -2663,7 +2671,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "16214056542344045239"
+              "templateHash": "10401563250887907432"
             }
           },
           "parameters": {
@@ -3090,7 +3098,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -3100,6 +3108,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -3157,7 +3166,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -3167,6 +3176,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -3224,7 +3234,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -3234,6 +3244,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -3291,7 +3302,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -3301,6 +3312,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -3543,7 +3555,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "16214056542344045239"
+              "templateHash": "10401563250887907432"
             }
           },
           "parameters": {
@@ -3970,7 +3982,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -3980,6 +3992,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -4037,7 +4050,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -4047,6 +4060,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -4104,7 +4118,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -4114,6 +4128,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -4171,7 +4186,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -4181,6 +4196,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -4420,7 +4436,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "16657458799343710826"
+              "templateHash": "15020434500074052095"
             }
           },
           "parameters": {
@@ -4836,7 +4852,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -4846,6 +4862,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -4903,7 +4920,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -4913,6 +4930,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -4970,7 +4988,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -4980,6 +4998,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -5037,7 +5056,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -5047,6 +5066,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -5221,7 +5241,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "16657458799343710826"
+              "templateHash": "15020434500074052095"
             }
           },
           "parameters": {
@@ -5637,7 +5657,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -5647,6 +5667,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -5704,7 +5725,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -5714,6 +5735,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -5771,7 +5793,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -5781,6 +5803,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -5838,7 +5861,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -5848,6 +5871,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -7791,7 +7815,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "10598890903565318803"
+              "templateHash": "11859204857715079974"
             }
           },
           "parameters": {
@@ -7925,7 +7949,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "73071535335385391"
+                      "templateHash": "4804743520364234939"
                     },
                     "description": "Creates an Azure Function in an existing Azure App Service plan."
                   },
@@ -8437,7 +8461,7 @@
                             "_generator": {
                               "name": "bicep",
                               "version": "0.37.4.10188",
-                              "templateHash": "3429658987926653054"
+                              "templateHash": "2667061524101374844"
                             },
                             "description": "Creates a role assignment for a service principal."
                           },
@@ -8447,6 +8471,7 @@
                             },
                             "principalType": {
                               "type": "string",
+                              "defaultValue": "ServicePrincipal",
                               "allowedValues": [
                                 "Device",
                                 "ForeignGroup",
@@ -8526,7 +8551,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -8536,6 +8561,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -8593,7 +8619,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -8603,6 +8629,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -8660,7 +8687,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -8670,6 +8697,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -8727,7 +8755,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -8737,6 +8765,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -8794,7 +8823,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -8804,6 +8833,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -8984,7 +9014,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "10598890903565318803"
+              "templateHash": "11859204857715079974"
             }
           },
           "parameters": {
@@ -9118,7 +9148,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "73071535335385391"
+                      "templateHash": "4804743520364234939"
                     },
                     "description": "Creates an Azure Function in an existing Azure App Service plan."
                   },
@@ -9630,7 +9660,7 @@
                             "_generator": {
                               "name": "bicep",
                               "version": "0.37.4.10188",
-                              "templateHash": "3429658987926653054"
+                              "templateHash": "2667061524101374844"
                             },
                             "description": "Creates a role assignment for a service principal."
                           },
@@ -9640,6 +9670,7 @@
                             },
                             "principalType": {
                               "type": "string",
+                              "defaultValue": "ServicePrincipal",
                               "allowedValues": [
                                 "Device",
                                 "ForeignGroup",
@@ -9719,7 +9750,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -9729,6 +9760,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -9786,7 +9818,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -9796,6 +9828,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -9853,7 +9886,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -9863,6 +9896,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -9920,7 +9954,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -9930,6 +9964,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -9987,7 +10022,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.37.4.10188",
-                      "templateHash": "3429658987926653054"
+                      "templateHash": "2667061524101374844"
                     },
                     "description": "Creates a role assignment for a service principal."
                   },
@@ -9997,6 +10032,7 @@
                     },
                     "principalType": {
                       "type": "string",
+                      "defaultValue": "ServicePrincipal",
                       "allowedValues": [
                         "Device",
                         "ForeignGroup",
@@ -10811,9 +10847,7 @@
           "roleDefinitionId": {
             "value": "ba92f5b4-2d11-453d-a403-e96b0029c9fe"
           },
-          "principalType": {
-            "value": "User"
-          }
+          "principalType": "[if(parameters('isServicePrincipal'), createObject('value', 'ServicePrincipal'), createObject('value', 'User'))]"
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -10822,7 +10856,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "3429658987926653054"
+              "templateHash": "2667061524101374844"
             },
             "description": "Creates a role assignment for a service principal."
           },
@@ -10832,6 +10866,7 @@
             },
             "principalType": {
               "type": "string",
+              "defaultValue": "ServicePrincipal",
               "allowedValues": [
                 "Device",
                 "ForeignGroup",
@@ -10880,9 +10915,7 @@
           "roleDefinitionId": {
             "value": "a97b65f3-24c7-4388-baec-2e87135dc908"
           },
-          "principalType": {
-            "value": "User"
-          }
+          "principalType": "[if(parameters('isServicePrincipal'), createObject('value', 'ServicePrincipal'), createObject('value', 'User'))]"
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -10891,7 +10924,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "3429658987926653054"
+              "templateHash": "2667061524101374844"
             },
             "description": "Creates a role assignment for a service principal."
           },
@@ -10901,6 +10934,7 @@
             },
             "principalType": {
               "type": "string",
+              "defaultValue": "ServicePrincipal",
               "allowedValues": [
                 "Device",
                 "ForeignGroup",
@@ -10949,9 +10983,7 @@
           "roleDefinitionId": {
             "value": "b24988ac-6180-42a0-ab88-20f7382dd24c"
           },
-          "principalType": {
-            "value": "User"
-          }
+          "principalType": "[if(parameters('isServicePrincipal'), createObject('value', 'ServicePrincipal'), createObject('value', 'User'))]"
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -10960,7 +10992,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "3429658987926653054"
+              "templateHash": "2667061524101374844"
             },
             "description": "Creates a role assignment for a service principal."
           },
@@ -10970,6 +11002,7 @@
             },
             "principalType": {
               "type": "string",
+              "defaultValue": "ServicePrincipal",
               "allowedValues": [
                 "Device",
                 "ForeignGroup",
@@ -11018,9 +11051,7 @@
           "roleDefinitionId": {
             "value": "8ebe5a00-799e-43f5-93ac-243d3dce84a7"
           },
-          "principalType": {
-            "value": "User"
-          }
+          "principalType": "[if(parameters('isServicePrincipal'), createObject('value', 'ServicePrincipal'), createObject('value', 'User'))]"
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -11029,7 +11060,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "3429658987926653054"
+              "templateHash": "2667061524101374844"
             },
             "description": "Creates a role assignment for a service principal."
           },
@@ -11039,6 +11070,7 @@
             },
             "principalType": {
               "type": "string",
+              "defaultValue": "ServicePrincipal",
               "allowedValues": [
                 "Device",
                 "ForeignGroup",
