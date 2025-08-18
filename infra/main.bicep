@@ -300,6 +300,9 @@ param searchTag string = 'chatwithyourdata-sa'
 @description('Id of the user or app to assign application roles')
 param principalId string = ''
 
+@description('Application Environment')
+param appEnvironment string = 'Prod'
+
 @description('Hosting model for the web apps. This value is fixed as "container", which uses prebuilt containers for faster deployment.')
 param hostingModel string = 'container'
 
@@ -422,7 +425,7 @@ var defaultOpenAiDeployments = [
       version: azureOpenAIEmbeddingModelVersion
     }
     sku: {
-      name: 'Standard'
+      name: 'GlobalStandard'
       capacity: azureOpenAIEmbeddingModelCapacity
     }
   }
@@ -632,7 +635,8 @@ module web './app/web.bicep' = if (hostingModel == 'code') {
         LOGLEVEL: logLevel
         DATABASE_TYPE: databaseType
         OPEN_AI_FUNCTIONS_SYSTEM_PROMPT: openAIFunctionsSystemPrompt
-        SEMENTIC_KERNEL_SYSTEM_PROMPT: semanticKernelSystemPrompt
+        SEMANTIC_KERNEL_SYSTEM_PROMPT: semanticKernelSystemPrompt
+        APP_ENV: appEnvironment
       },
       // Conditionally add database-specific settings
       databaseType == 'CosmosDB'
@@ -724,7 +728,8 @@ module web_docker './app/web.bicep' = if (hostingModel == 'container') {
         LOGLEVEL: logLevel
         DATABASE_TYPE: databaseType
         OPEN_AI_FUNCTIONS_SYSTEM_PROMPT: openAIFunctionsSystemPrompt
-        SEMENTIC_KERNEL_SYSTEM_PROMPT: semanticKernelSystemPrompt
+        SEMANTIC_KERNEL_SYSTEM_PROMPT: semanticKernelSystemPrompt
+        APP_ENV: appEnvironment
       },
       // Conditionally add database-specific settings
       databaseType == 'CosmosDB'
@@ -812,6 +817,7 @@ module adminweb './app/adminweb.bicep' = if (hostingModel == 'code') {
         LOGLEVEL: logLevel
         DATABASE_TYPE: databaseType
         USE_KEY_VAULT: 'true'
+        APP_ENV: appEnvironment
       },
       // Conditionally add database-specific settings
       databaseType == 'CosmosDB'
@@ -895,6 +901,7 @@ module adminweb_docker './app/adminweb.bicep' = if (hostingModel == 'container')
         LOGLEVEL: logLevel
         DATABASE_TYPE: databaseType
         USE_KEY_VAULT: 'true'
+        APP_ENV: appEnvironment
       },
       // Conditionally add database-specific settings
       databaseType == 'CosmosDB'
@@ -1007,6 +1014,7 @@ module function './app/function.bicep' = if (hostingModel == 'code') {
         LOGLEVEL: logLevel
         AZURE_OPENAI_SYSTEM_MESSAGE: azureOpenAISystemMessage
         DATABASE_TYPE: databaseType
+        APP_ENV: appEnvironment
       },
       // Conditionally add database-specific settings
       databaseType == 'CosmosDB'
@@ -1076,6 +1084,7 @@ module function_docker './app/function.bicep' = if (hostingModel == 'container')
         LOGLEVEL: logLevel
         AZURE_OPENAI_SYSTEM_MESSAGE: azureOpenAISystemMessage
         DATABASE_TYPE: databaseType
+        APP_ENV: appEnvironment
       },
       // Conditionally add database-specific settings
       databaseType == 'CosmosDB'
@@ -1182,80 +1191,44 @@ module storage 'core/storage/storage-account.bicep' = {
 // Storage Blob Data Contributor
 module storageRoleUser 'core/security/role.bicep' = if (principalId != '') {
   scope: rg
-  name: 'storage-role-user1'
+  name: 'storage-role-user'
   params: {
     principalId: principalId
     roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
     principalType: 'User'
-  }
-}
-module servicePrincipalstorageRoleUser 'core/security/role.bicep' = if (principalId != '') {
-  scope: rg
-  name: 'storage-role-user2'
-  params: {
-    principalId: principalId
-    roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
-    principalType: 'ServicePrincipal'
   }
 }
 
 // Cognitive Services User
 module openaiRoleUser 'core/security/role.bicep' = if (principalId != '') {
   scope: rg
-  name: 'openai-role-user1'
+  name: 'openai-role-user'
   params: {
     principalId: principalId
     roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908'
     principalType: 'User'
-  }
-}
-module servicePrincipalOpenaiRoleUser 'core/security/role.bicep' = if (principalId != '') {
-  scope: rg
-  name: 'openai-role-user2'
-  params: {
-    principalId: principalId
-    roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908'
-    principalType: 'ServicePrincipal'
   }
 }
 
 // Contributor
 module openaiRoleUserContributor 'core/security/role.bicep' = if (principalId != '') {
   scope: rg
-  name: 'openai-role-user-contributor1'
+  name: 'openai-role-user-contributor'
   params: {
     principalId: principalId
     roleDefinitionId: 'b24988ac-6180-42a0-ab88-20f7382dd24c'
     principalType: 'User'
-  }
-}
-module servicePrincipalOpenaiRoleUserContributor 'core/security/role.bicep' = if (principalId != '') {
-  scope: rg
-  name: 'openai-role-user-contributor2'
-  params: {
-    principalId: principalId
-    roleDefinitionId: 'b24988ac-6180-42a0-ab88-20f7382dd24c'
-    principalType: 'ServicePrincipal'
   }
 }
 
 // Search Index Data Contributor
 module searchRoleUser 'core/security/role.bicep' = if (principalId != '' && databaseType == 'CosmosDB') {
   scope: rg
-  name: 'search-role-user1'
+  name: 'search-role-user'
   params: {
     principalId: principalId
     roleDefinitionId: '8ebe5a00-799e-43f5-93ac-243d3dce84a7'
     principalType: 'User'
-  }
-}
-module servicePrincipalSearchRoleUser 'core/security/role.bicep' = if (principalId != '' && databaseType == 'CosmosDB') {
-  scope: rg
-  name: 'search-role-user2'
-  params: {
-    principalId: principalId
-    roleDefinitionId: '8ebe5a00-799e-43f5-93ac-243d3dce84a7'
-    principalType: 'ServicePrincipal'
   }
 }
 
@@ -1366,7 +1339,7 @@ var azureSearchServiceInfo = databaseType == 'CosmosDB'
   : ''
 
 var azureComputerVisionInfo = string({
-  service_name: speechServiceName
+  service_name: computerVisionName
   endpoint: useAdvancedImageProcessing ? computerVision.outputs.endpoint : ''
   location: useAdvancedImageProcessing ? computerVision.outputs.location : ''
   vectorize_image_api_version: computerVisionVectorizeImageApiVersion
@@ -1393,6 +1366,7 @@ var backendUrl = 'https://${functionName}.azurewebsites.net'
 
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = monitoring.outputs.applicationInsightsConnectionString
 output AZURE_APP_SERVICE_HOSTING_MODEL string = hostingModel
+output APP_ENV string = appEnvironment
 output AZURE_BLOB_STORAGE_INFO string = azureBlobStorageInfo
 output AZURE_COMPUTER_VISION_INFO string = azureComputerVisionInfo
 output AZURE_CONTENT_SAFETY_INFO string = azureContentSafetyInfo
@@ -1430,4 +1404,4 @@ output AZURE_COSMOSDB_INFO string = azureCosmosDBInfo
 output AZURE_POSTGRESQL_INFO string = azurePostgresDBInfo
 output DATABASE_TYPE string = databaseType
 output OPEN_AI_FUNCTIONS_SYSTEM_PROMPT string = openAIFunctionsSystemPrompt
-output SEMENTIC_KERNEL_SYSTEM_PROMPT string = semanticKernelSystemPrompt
+output SEMANTIC_KERNEL_SYSTEM_PROMPT string = semanticKernelSystemPrompt
