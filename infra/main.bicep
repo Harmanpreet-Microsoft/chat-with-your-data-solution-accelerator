@@ -1182,7 +1182,7 @@ module storage 'core/storage/storage-account.bicep' = {
 // Storage Blob Data Contributor
 module storageRoleUser 'core/security/role.bicep' = if (principalId != '') {
   scope: rg
-  name: 'storage-role-user'
+  name: 'storage-role-user1'
   params: {
     principalId: principalId
     roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
@@ -1191,7 +1191,7 @@ module storageRoleUser 'core/security/role.bicep' = if (principalId != '') {
 }
 module servicePrincipalstorageRoleUser 'core/security/role.bicep' = if (principalId != '') {
   scope: rg
-  name: 'storage-role-user'
+  name: 'storage-role-user2'
   params: {
     principalId: principalId
     roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
@@ -1202,7 +1202,7 @@ module servicePrincipalstorageRoleUser 'core/security/role.bicep' = if (principa
 // Cognitive Services User
 module openaiRoleUser 'core/security/role.bicep' = if (principalId != '') {
   scope: rg
-  name: 'openai-role-user'
+  name: 'openai-role-user1'
   params: {
     principalId: principalId
     roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908'
@@ -1211,7 +1211,7 @@ module openaiRoleUser 'core/security/role.bicep' = if (principalId != '') {
 }
 module servicePrincipalOpenaiRoleUser 'core/security/role.bicep' = if (principalId != '') {
   scope: rg
-  name: 'openai-role-user'
+  name: 'openai-role-user2'
   params: {
     principalId: principalId
     roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908'
@@ -1222,7 +1222,7 @@ module servicePrincipalOpenaiRoleUser 'core/security/role.bicep' = if (principal
 // Contributor
 module openaiRoleUserContributor 'core/security/role.bicep' = if (principalId != '') {
   scope: rg
-  name: 'openai-role-user-contributor'
+  name: 'openai-role-user-contributor1'
   params: {
     principalId: principalId
     roleDefinitionId: 'b24988ac-6180-42a0-ab88-20f7382dd24c'
@@ -1231,7 +1231,7 @@ module openaiRoleUserContributor 'core/security/role.bicep' = if (principalId !=
 }
 module servicePrincipalOpenaiRoleUserContributor 'core/security/role.bicep' = if (principalId != '') {
   scope: rg
-  name: 'openai-role-user-contributor'
+  name: 'openai-role-user-contributor2'
   params: {
     principalId: principalId
     roleDefinitionId: 'b24988ac-6180-42a0-ab88-20f7382dd24c'
@@ -1242,7 +1242,7 @@ module servicePrincipalOpenaiRoleUserContributor 'core/security/role.bicep' = if
 // Search Index Data Contributor
 module searchRoleUser 'core/security/role.bicep' = if (principalId != '' && databaseType == 'CosmosDB') {
   scope: rg
-  name: 'search-role-user'
+  name: 'search-role-user1'
   params: {
     principalId: principalId
     roleDefinitionId: '8ebe5a00-799e-43f5-93ac-243d3dce84a7'
@@ -1251,7 +1251,7 @@ module searchRoleUser 'core/security/role.bicep' = if (principalId != '' && data
 }
 module servicePrincipalSearchRoleUser 'core/security/role.bicep' = if (principalId != '' && databaseType == 'CosmosDB') {
   scope: rg
-  name: 'search-role-user'
+  name: 'search-role-user2'
   params: {
     principalId: principalId
     roleDefinitionId: '8ebe5a00-799e-43f5-93ac-243d3dce84a7'
