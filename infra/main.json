@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "7789004801167092855"
+      "templateHash": "64371469790783548"
     }
   },
   "parameters": {
@@ -10842,9 +10842,6 @@
           },
           "roleDefinitionId": {
             "value": "ba92f5b4-2d11-453d-a403-e96b0029c9fe"
-          },
-          "principalType": {
-            "value": "User"
           }
         },
         "template": {
@@ -10912,9 +10909,6 @@
           },
           "roleDefinitionId": {
             "value": "a97b65f3-24c7-4388-baec-2e87135dc908"
-          },
-          "principalType": {
-            "value": "User"
           }
         },
         "template": {
@@ -10982,9 +10976,6 @@
           },
           "roleDefinitionId": {
             "value": "b24988ac-6180-42a0-ab88-20f7382dd24c"
-          },
-          "principalType": {
-            "value": "User"
           }
         },
         "template": {
