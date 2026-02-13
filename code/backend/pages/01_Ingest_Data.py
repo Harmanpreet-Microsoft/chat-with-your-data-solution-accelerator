@@ -62,8 +62,30 @@ def add_urls():
 
 
 def sanitize_metadata_value(value):
-    # Remove invalid characters
-    return re.sub(r"[^a-zA-Z0-9-_ .]", "?", value)
+    """
+    Sanitize metadata value for Azure Blob Storage.
+
+    Azure Blob metadata values are sent as HTTP headers, which must be ASCII/latin-1 compatible.
+    Unicode characters must be URL-encoded to be safely stored in metadata.
+
+    The value will be URL-encoded to preserve Unicode characters in an ASCII-safe format.
+    Decode with urllib.parse.unquote() when reading the metadata.
+    """
+    if not value:
+        return value
+
+    # Remove ASCII control characters
+    sanitized = re.sub(r'[\x00-\x1f\x7f]', '', value)
+
+    # Remove characters that are problematic in HTTP headers/URLs
+    # Specifically remove: < > : " | ? * \ (common filesystem/URL issues)
+    sanitized = re.sub(r'[<>:"|?*\\]', '', sanitized)
+
+    # URL-encode the value to make it ASCII-safe for HTTP headers
+    # This preserves Unicode characters like Hebrew, Arabic, Chinese, etc.
+    sanitized = urllib.parse.quote(sanitized, safe=' ._-')
+
+    return sanitized
 
 
 def add_url_embeddings(urls: list[str]):

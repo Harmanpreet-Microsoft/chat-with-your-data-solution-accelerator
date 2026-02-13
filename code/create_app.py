@@ -396,6 +396,7 @@ def get_speech_key(env_helper: EnvHelper):
 def create_app():
     """This function creates the Flask app."""
     # Fixing MIME types for static files under Windows
+
     mimetypes.add_type("application/javascript", ".js")
     mimetypes.add_type("text/css", ".css")
 
@@ -449,8 +450,9 @@ def create_app():
                 logger.warning("Filename too long: %s", filename)
                 return jsonify({"error": "Filename too long"}), 400
 
-            # Only allow safe characters (alphanumeric, dots, dashes, underscores, spaces)
-            if not re.match(r'^[a-zA-Z0-9._\-\s]+$', filename):
+            # Block dangerous characters (control chars, null bytes) while allowing Unicode
+            # Path traversal already checked above; this blocks shell/control characters
+            if re.search(r'[\x00-\x1f<>:"|?*]', filename):
                 logger.warning("Filename contains invalid characters: %s", filename)
                 return jsonify({"error": "Invalid filename characters"}), 400
 
@@ -477,13 +479,25 @@ def create_app():
             if file_size > 10 * 1024 * 1024:  # 10MB threshold
                 logger.info("Large file detected: %s, size: %d bytes", filename, file_size)
 
+            # Encode filename for Content-Disposition header (RFC 5987)
+            # HTTP headers must be ASCII, so use URL encoding for non-ASCII filenames
+            try:
+                # Try ASCII encoding first
+                filename.encode('ascii')
+                content_disposition = f'inline; filename="{filename}"'
+            except UnicodeEncodeError:
+                # Use RFC 5987 encoding for non-ASCII filenames
+                # filename* uses UTF-8 URL encoding for Unicode support
+                encoded_filename = quote(filename, safe='')
+                content_disposition = f"inline; filename*=UTF-8''{encoded_filename}"
+
             # Create response with comprehensive headers
             response = Response(
                 file_data,
                 status=200,
                 mimetype=content_type,
                 headers={
-                    'Content-Disposition': f'inline; filename="{filename}"',
+                    'Content-Disposition': content_disposition,
                     'Content-Length': str(file_size),
                     'Cache-Control': 'public, max-age=3600',
                     'X-Content-Type-Options': 'nosniff',

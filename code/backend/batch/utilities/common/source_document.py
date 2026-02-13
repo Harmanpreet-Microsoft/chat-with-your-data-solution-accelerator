@@ -1,7 +1,7 @@
 from typing import Optional, Type
 import hashlib
 import json
-from urllib.parse import urlparse, quote
+from urllib.parse import urlparse, quote, unquote
 from ..helpers.azure_blob_storage_client import AzureBlobStorageClient
 
 
@@ -82,11 +82,14 @@ class SourceDocument:
             and parsed_url.netloc.endswith(".blob.core.windows.net")
             else ""
         )
+        # URL-decode the title to restore Unicode characters from encoded URLs/metadata
+        raw_title = metadata.get("title", filename)
+        decoded_title = unquote(raw_title) if raw_title else raw_title
         return cls(
             id=metadata.get("id", hash_key),
             content=content,
             source=metadata.get("source", f"{file_url}{sas_placeholder}"),
-            title=metadata.get("title", filename),
+            title=decoded_title,
             chunk=metadata.get("chunk", idx),
             offset=metadata.get("offset"),
             page_number=metadata.get("page_number"),
